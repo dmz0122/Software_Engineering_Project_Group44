@@ -6,5 +6,5 @@
 | Jingwen Zhang | QMID 231222914 |
 | Linxuan Cai | QMID 231221641 |
 | Zhuqing Zhang | QMID 231221308 |
-| Member 6 | QMIDxxxx |
+| Weicheng Sun | QMID 231220552 |
 | Member 7 | QMIDxxxx |
