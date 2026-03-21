@@ -7,4 +7,4 @@
 | Linxuan Cai | QMID 231221641 |
 | Zhuqing Zhang | QMID 231221308 |
 | Weicheng Sun | QMID 231220552 |
-| Member 7 | QMIDxxxx |
+| Member 7 | QMIDxxx |
