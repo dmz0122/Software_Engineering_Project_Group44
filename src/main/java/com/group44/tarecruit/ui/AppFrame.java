@@ -26,6 +26,7 @@ import java.nio.file.Path;
 public class AppFrame extends JFrame {
     private static final String LOGIN_CARD = "login";
     private static final String APPLICANT_CARD = "applicant";
+    private static final String ORGANISER_CARD = "organiser";
 
     private final AuthService authService;
     private final ProfileService profileService;
@@ -37,6 +38,7 @@ public class AppFrame extends JFrame {
     private final CardLayout cardLayout;
     private final LoginPanel loginPanel;
     private final ApplicantWorkspacePanel applicantWorkspacePanel;
+    private final OrganiserWorkspacePanel organiserWorkspacePanel;
 
     private UserAccount currentUser;
 
@@ -82,9 +84,16 @@ public class AppFrame extends JFrame {
                 cvService,
                 this::logout
         );
+        organiserWorkspacePanel = new OrganiserWorkspacePanel(
+                applicationService,
+                jobService,
+                cvService,
+                this::logout
+        );
 
         rootPanel.add(loginPanel, LOGIN_CARD);
         rootPanel.add(applicantWorkspacePanel, APPLICANT_CARD);
+        rootPanel.add(organiserWorkspacePanel, ORGANISER_CARD);
         setContentPane(rootPanel);
         showCard(LOGIN_CARD);
     }
@@ -100,9 +109,11 @@ public class AppFrame extends JFrame {
             applicantWorkspacePanel.setCurrentUser(user);
             applicantWorkspacePanel.refreshAll();
             showCard(APPLICANT_CARD);
-            return;
+        } else {
+            organiserWorkspacePanel.setCurrentUser(user);
+            organiserWorkspacePanel.refreshAll();
+            showCard(ORGANISER_CARD);
         }
-        JOptionPane.showMessageDialog(this, "Organiser wiring lands in the next integration commit.");
     }
 
     private void logout() {
