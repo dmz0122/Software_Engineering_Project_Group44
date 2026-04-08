@@ -1,0 +1,13 @@
+# Build outputs
+target/
+
+# Runtime data and temporary logs
+/data/
+run_stdout.log
+run_stderr.log
+
+# Requirement and prototype artefacts not meant for code tracking
+guideline.md
+Product_Backlog_4Sprints.md
+Prototype_Group44_Images.md
+prototype_pages/
