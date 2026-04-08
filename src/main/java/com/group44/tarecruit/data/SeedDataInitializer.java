@@ -138,10 +138,15 @@ public class SeedDataInitializer {
     private void ensureSeedUsers(UserRepository userRepository) {
         List<UserAccount> users = new ArrayList<>(userRepository.findAll());
         boolean changed = false;
-        changed |= ensureUser(users, new UserAccount("ta-new", Role.APPLICANT, "New Student", "newta@school.edu", "password123"));
-        changed |= ensureUser(users, new UserAccount("ta-amy", Role.APPLICANT, "Amy Parker", "amy@school.edu", "password123"));
-        changed |= ensureUser(users, new UserAccount("ta-bob", Role.APPLICANT, "Bob Chen", "bob@school.edu", "password123"));
-        changed |= ensureUser(users, new UserAccount("mo-olivia", Role.ORGANISER, "Olivia Moore", "mo@school.edu", "password123"));
+        List<UserAccount> demoAccounts = List.of(
+                new UserAccount("ta-new", Role.APPLICANT, "New Student", "newta@school.edu", "password123"),
+                new UserAccount("ta-amy", Role.APPLICANT, "Amy Parker", "amy@school.edu", "password123"),
+                new UserAccount("ta-bob", Role.APPLICANT, "Bob Chen", "bob@school.edu", "password123"),
+                new UserAccount("mo-olivia", Role.ORGANISER, "Olivia Moore", "mo@school.edu", "password123")
+        );
+        for (UserAccount account : demoAccounts) {
+            changed |= ensureUser(users, account);
+        }
         if (changed) {
             userRepository.saveAll(users);
         }
