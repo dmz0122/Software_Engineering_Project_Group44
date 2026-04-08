@@ -118,9 +118,9 @@ public class OrganiserWorkspacePanel extends JPanel {
 
     private JPanel buildApplicantsPage() {
         JPanel page = pageWrapper();
-        page.add(UiFactory.titleLabel("Applicant Review"));
+        page.add(UiFactory.titleLabel("Review Applicants (MO)"));
         page.add(Box.createVerticalStrut(8));
-        page.add(UiFactory.mutedLabel("Switch between seeded vacancies, open applicant CVs and record the current decision."));
+        page.add(UiFactory.mutedLabel("Open one vacancy at a time, access applicant CVs and update the selection decision."));
         page.add(Box.createVerticalStrut(24));
 
         JPanel controls = UiFactory.card();
@@ -145,7 +145,7 @@ public class OrganiserWorkspacePanel extends JPanel {
         page.add(UiFactory.mutedLabel("This page is kept in the navigation to match the prototype, but vacancy publishing is scheduled for Sprint 2."));
         page.add(Box.createVerticalStrut(24));
         JPanel card = UiFactory.card();
-        JLabel message = UiFactory.bodyLabel("<html>Use the Applicants page for the Sprint 1 review flow. Seeded vacancies are already loaded from CSV so you can test the organiser-side decision steps end to end.</html>");
+        JLabel message = UiFactory.bodyLabel("<html>Use the Applicants page for Sprint 1 review work. Seeded vacancies are already loaded from CSV so you can test browsing, applicant review and selection end to end.</html>");
         card.add(message, BorderLayout.CENTER);
         page.add(card);
         return page;
