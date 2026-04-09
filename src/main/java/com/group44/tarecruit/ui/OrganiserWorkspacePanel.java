@@ -280,8 +280,10 @@ public class OrganiserWorkspacePanel extends JPanel {
         content.add(scrollField("Description", descriptionArea));
         content.add(Box.createVerticalStrut(18));
 
-        JPanel actions = new JPanel(new GridLayout(1, 2, 12, 0));
+        JPanel actions = new JPanel(new GridLayout(1, 3, 12, 0));
         actions.setOpaque(false);
+        JButton publishButton = UiFactory.primaryButton("Publish Job");
+        publishButton.addActionListener(event -> publishJob());
         JButton previewButton = UiFactory.secondaryButton("Preview");
         previewButton.addActionListener(event -> updatePreviewFromForm());
         JButton clearButton = UiFactory.lightButton("Clear");
@@ -289,6 +291,7 @@ public class OrganiserWorkspacePanel extends JPanel {
             clearPostJobForm();
             updatePreviewFromForm();
         });
+        actions.add(publishButton);
         actions.add(previewButton);
         actions.add(clearButton);
         content.add(actions);
@@ -397,6 +400,41 @@ public class OrganiserWorkspacePanel extends JPanel {
         previewDescriptionArea.setCaretPosition(0);
     }
 
+    private void publishJob() {
+        try {
+            JobPosting savedJob = jobService.createJob(new JobPosting(
+                    "",
+                    roleField.getText(),
+                    moduleCodeField.getText(),
+                    moduleNameField.getText(),
+                    semesterField.getText(),
+                    hoursPerWeekField.getText(),
+                    requiredSkillsArea.getText(),
+                    tagsField.getText(),
+                    descriptionArea.getText(),
+                    parseOpenings()
+            ));
+            clearPostJobForm();
+            refreshJobSelector(savedJob.id());
+            updatePreview(savedJob);
+            JOptionPane.showMessageDialog(this, "Job published successfully.");
+        } catch (RuntimeException exception) {
+            JOptionPane.showMessageDialog(this, exception.getMessage());
+        }
+    }
+
+    private int parseOpenings() {
+        String value = openingsField.getText().trim();
+        if (value.isBlank()) {
+            throw new IllegalArgumentException("Openings is required.");
+        }
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException("Openings must be a whole number.");
+        }
+    }
+
     private void clearPostJobForm() {
         roleField.setText("");
         hoursPerWeekField.setText("");
@@ -407,6 +445,22 @@ public class OrganiserWorkspacePanel extends JPanel {
         descriptionArea.setText("");
         tagsField.setText("");
         openingsField.setText("");
+    }
+
+    private void updatePreview(JobPosting job) {
+        previewTitleLabel.setText(job.title());
+        previewSummaryLabel.setText(job.moduleCode()
+                + " • "
+                + job.moduleName()
+                + " • "
+                + job.semester()
+                + " • "
+                + job.hoursPerWeek()
+                + " hrs/week • "
+                + job.openings()
+                + " opening(s)");
+        previewRequirementsArea.setText("• " + job.requiredSkills().replace("; ", "\n• "));
+        previewDescriptionArea.setText(job.description());
     }
 
     private void refreshJobSelector(String selectedJobId) {
