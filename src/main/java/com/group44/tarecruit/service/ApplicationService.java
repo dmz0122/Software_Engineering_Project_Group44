@@ -55,6 +55,14 @@ public class ApplicationService {
     }
 
     public JobApplication applyForJob(String jobId, String applicantId) {
+        JobPosting job = jobRepository.findById(jobId)
+                .orElseThrow(() -> new IllegalArgumentException("Job not found."));
+        ApplicantProfile profile = profileRepository.findByApplicantId(applicantId)
+                .orElseThrow(() -> new IllegalArgumentException("Please complete your profile before applying."));
+        if (!profile.isComplete()) {
+            throw new IllegalArgumentException("Please complete your profile before applying.");
+        }
+
         boolean duplicate = applicationRepository.findAll().stream()
                 .anyMatch(existing -> existing.jobId().equals(jobId) && existing.applicantId().equals(applicantId));
         if (duplicate) {
@@ -67,10 +75,14 @@ public class ApplicationService {
                 applicantId,
                 ApplicationStatus.APPLIED,
                 LocalDateTime.now().toString(),
-                "Submitted through the applicant portal"
+                "Application received and queued for organiser review."
         );
         applicationRepository.upsert(application);
-        notificationService.notifyUser(applicantId, "Application submitted", "Your application has been recorded successfully.");
+        notificationService.notifyUser(
+                applicantId,
+                "Application submitted",
+                "Your application for " + job.title() + " has been recorded successfully."
+        );
         return application;
     }
 
@@ -111,6 +123,17 @@ public class ApplicationService {
 
     public Optional<JobPosting> findJobForApplication(JobApplication application) {
         return jobRepository.findById(application.jobId());
+    }
+
+    public Optional<JobApplication> findApplicationForApplicantAndJob(String applicantId, String jobId) {
+        return applicationRepository.findAll().stream()
+                .filter(application -> application.applicantId().equals(applicantId))
+                .filter(application -> application.jobId().equals(jobId))
+                .findFirst();
+    }
+
+    public boolean hasApplicantApplied(String applicantId, String jobId) {
+        return findApplicationForApplicantAndJob(applicantId, jobId).isPresent();
     }
 
     public long selectedCountForJob(String jobId) {

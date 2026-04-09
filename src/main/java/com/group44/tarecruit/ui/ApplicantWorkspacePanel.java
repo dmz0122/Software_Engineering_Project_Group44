@@ -30,7 +30,9 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.GridLayout;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public class ApplicantWorkspacePanel extends JPanel {
@@ -73,6 +75,7 @@ public class ApplicantWorkspacePanel extends JPanel {
     private JobPosting selectedJob;
     private String currentCvOriginalFileName = "";
     private String currentCvStoredPath = "";
+    private Map<String, JobApplication> applicationsByJobId = new LinkedHashMap<>();
 
     public ApplicantWorkspacePanel(
             ProfileService profileService,
@@ -451,9 +454,21 @@ public class ApplicantWorkspacePanel extends JPanel {
     }
 
     private void refreshJobs() {
+        applicationsByJobId = applicationService.findApplicationsForApplicant(currentUser.id()).stream()
+                .collect(LinkedHashMap::new, (map, application) -> map.put(application.jobId(), application), LinkedHashMap::putAll);
         List<JobPosting> jobs = jobService.getAllJobs();
+        if (selectedJob != null) {
+            String selectedJobId = selectedJob.id();
+            selectedJob = jobs.stream()
+                    .filter(job -> job.id().equals(selectedJobId))
+                    .findFirst()
+                    .orElse(null);
+        }
         if (!jobs.isEmpty() && selectedJob == null) {
             selectedJob = jobs.getFirst();
+        }
+        if (jobs.isEmpty()) {
+            selectedJob = null;
         }
         rebuildVerticalList(jobsListPanel, jobs.stream().map(this::jobCard).toList(), "No jobs are available right now.");
         updateJobDetailPanel();
@@ -642,6 +657,14 @@ public class ApplicantWorkspacePanel extends JPanel {
         } catch (RuntimeException exception) {
             JOptionPane.showMessageDialog(this, exception.getMessage());
         }
+    }
+
+    private boolean hasApplied(JobPosting job) {
+        return applicationsByJobId.containsKey(job.id());
+    }
+
+    private Optional<JobApplication> applicationFor(JobPosting job) {
+        return Optional.ofNullable(applicationsByJobId.get(job.id()));
     }
 
     private void showPage(String page) {
