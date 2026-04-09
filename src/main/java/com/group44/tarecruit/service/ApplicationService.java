@@ -125,6 +125,17 @@ public class ApplicationService {
         return jobRepository.findById(application.jobId());
     }
 
+    public Optional<JobApplication> findApplicationForApplicantAndJob(String applicantId, String jobId) {
+        return applicationRepository.findAll().stream()
+                .filter(application -> application.applicantId().equals(applicantId))
+                .filter(application -> application.jobId().equals(jobId))
+                .findFirst();
+    }
+
+    public boolean hasApplicantApplied(String applicantId, String jobId) {
+        return findApplicationForApplicantAndJob(applicantId, jobId).isPresent();
+    }
+
     public long selectedCountForJob(String jobId) {
         return applicationRepository.findAll().stream()
                 .filter(application -> application.jobId().equals(jobId))
