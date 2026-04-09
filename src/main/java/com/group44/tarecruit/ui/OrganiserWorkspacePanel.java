@@ -18,11 +18,15 @@ import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
+import javax.swing.JTextField;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.GridLayout;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -39,6 +43,19 @@ public class OrganiserWorkspacePanel extends JPanel {
     private final JPanel pagePanel;
     private final JComboBox<JobPosting> jobSelector;
     private final JPanel applicantListPanel;
+    private final JTextField roleField;
+    private final JTextField hoursPerWeekField;
+    private final JTextField moduleCodeField;
+    private final JTextField moduleNameField;
+    private final JTextField semesterField;
+    private final JTextArea requiredSkillsArea;
+    private final JTextArea descriptionArea;
+    private final JTextField tagsField;
+    private final JTextField openingsField;
+    private final JLabel previewTitleLabel;
+    private final JLabel previewSummaryLabel;
+    private final JTextArea previewRequirementsArea;
+    private final JTextArea previewDescriptionArea;
 
     private UserAccount currentUser;
 
@@ -62,12 +79,25 @@ public class OrganiserWorkspacePanel extends JPanel {
         applicantListPanel = new JPanel();
         applicantListPanel.setLayout(new BoxLayout(applicantListPanel, BoxLayout.Y_AXIS));
         applicantListPanel.setOpaque(false);
+        roleField = UiFactory.textField();
+        hoursPerWeekField = UiFactory.textField();
+        moduleCodeField = UiFactory.textField();
+        moduleNameField = UiFactory.textField();
+        semesterField = UiFactory.textField();
+        requiredSkillsArea = UiFactory.textArea(5);
+        descriptionArea = UiFactory.textArea(7);
+        tagsField = UiFactory.textField();
+        openingsField = UiFactory.textField();
+        previewTitleLabel = UiFactory.sectionLabel("Vacancy preview");
+        previewSummaryLabel = UiFactory.mutedLabel("Enter vacancy details and use Preview to confirm the listing.");
+        previewRequirementsArea = readOnlyArea(6);
+        previewDescriptionArea = readOnlyArea(8);
 
         pageLayout = new CardLayout();
         pagePanel = new JPanel(pageLayout);
         pagePanel.setOpaque(false);
         pagePanel.add(UiFactory.scrollPane(buildApplicantsPage()), APPLICANTS_PAGE);
-        pagePanel.add(UiFactory.scrollPane(buildPostJobPlaceholder()), POST_JOB_PAGE);
+        pagePanel.add(UiFactory.scrollPane(buildPostJobPage()), POST_JOB_PAGE);
         add(pagePanel, BorderLayout.CENTER);
     }
 
@@ -76,15 +106,10 @@ public class OrganiserWorkspacePanel extends JPanel {
     }
 
     public void refreshAll() {
-        jobSelector.removeAllItems();
-        for (JobPosting job : jobService.getAllJobs()) {
-            jobSelector.addItem(job);
-        }
-        if (jobSelector.getItemCount() > 0) {
-            jobSelector.setSelectedIndex(0);
-        }
+        refreshJobSelector(null);
         refreshApplicantList();
         showPage(APPLICANTS_PAGE);
+        updatePreviewFromForm();
     }
 
     private JPanel buildSidebar() {
@@ -138,16 +163,18 @@ public class OrganiserWorkspacePanel extends JPanel {
         return page;
     }
 
-    private JPanel buildPostJobPlaceholder() {
+    private JPanel buildPostJobPage() {
         JPanel page = pageWrapper();
-        page.add(UiFactory.titleLabel("Post Job (Sprint 2)"));
+        page.add(UiFactory.titleLabel("Post Job (MO)"));
         page.add(Box.createVerticalStrut(8));
-        page.add(UiFactory.mutedLabel("This page is kept in the navigation to match the prototype, but vacancy publishing is scheduled for Sprint 2."));
+        page.add(UiFactory.mutedLabel("Create a new vacancy with the role, module details, required skills and workload information."));
         page.add(Box.createVerticalStrut(24));
-        JPanel card = UiFactory.card();
-        JLabel message = UiFactory.bodyLabel("<html>Use the Applicants page for Sprint 1 review work. Seeded vacancies are already loaded from CSV so you can test browsing, applicant review and selection end to end.</html>");
-        card.add(message, BorderLayout.CENTER);
-        page.add(card);
+
+        JPanel grid = new JPanel(new GridLayout(1, 2, 20, 0));
+        grid.setOpaque(false);
+        grid.add(buildPostJobFormCard());
+        grid.add(buildPostJobPreviewCard());
+        page.add(grid);
         return page;
     }
 
@@ -228,6 +255,177 @@ public class OrganiserWorkspacePanel extends JPanel {
 
         card.add(content, BorderLayout.CENTER);
         return card;
+    }
+
+    private JPanel buildPostJobFormCard() {
+        JPanel card = UiFactory.card();
+
+        JPanel content = new JPanel();
+        content.setOpaque(false);
+        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+
+        JPanel fieldsGrid = new JPanel(new GridLayout(0, 2, 18, 16));
+        fieldsGrid.setOpaque(false);
+        fieldsGrid.add(labeledField("Role", roleField));
+        fieldsGrid.add(labeledField("Hours/week", hoursPerWeekField));
+        fieldsGrid.add(labeledField("Module code", moduleCodeField));
+        fieldsGrid.add(labeledField("Module/activity", moduleNameField));
+        fieldsGrid.add(labeledField("Semester", semesterField));
+        fieldsGrid.add(labeledField("Openings", openingsField));
+        fieldsGrid.add(labeledField("Tags", tagsField));
+        fieldsGrid.add(scrollField("Required skills", requiredSkillsArea));
+
+        content.add(fieldsGrid);
+        content.add(Box.createVerticalStrut(16));
+        content.add(scrollField("Description", descriptionArea));
+        content.add(Box.createVerticalStrut(18));
+
+        JPanel actions = new JPanel(new GridLayout(1, 2, 12, 0));
+        actions.setOpaque(false);
+        JButton previewButton = UiFactory.secondaryButton("Preview");
+        previewButton.addActionListener(event -> updatePreviewFromForm());
+        JButton clearButton = UiFactory.lightButton("Clear");
+        clearButton.addActionListener(event -> {
+            clearPostJobForm();
+            updatePreviewFromForm();
+        });
+        actions.add(previewButton);
+        actions.add(clearButton);
+        content.add(actions);
+
+        card.add(content, BorderLayout.CENTER);
+        return card;
+    }
+
+    private JPanel buildPostJobPreviewCard() {
+        JPanel card = UiFactory.card();
+        JPanel content = new JPanel();
+        content.setOpaque(false);
+        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+
+        content.add(previewTitleLabel);
+        content.add(Box.createVerticalStrut(8));
+        content.add(previewSummaryLabel);
+        content.add(Box.createVerticalStrut(16));
+        content.add(UiFactory.bodyLabel("Required skills"));
+        content.add(Box.createVerticalStrut(8));
+        content.add(new JScrollPane(previewRequirementsArea));
+        content.add(Box.createVerticalStrut(14));
+        content.add(UiFactory.bodyLabel("Description"));
+        content.add(Box.createVerticalStrut(8));
+        content.add(new JScrollPane(previewDescriptionArea));
+
+        card.add(content, BorderLayout.CENTER);
+        return card;
+    }
+
+    private JPanel labeledField(String labelText, Component component) {
+        JPanel panel = new JPanel();
+        panel.setOpaque(false);
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.add(UiFactory.bodyLabel(labelText));
+        panel.add(Box.createVerticalStrut(8));
+        panel.add(component);
+        return panel;
+    }
+
+    private JPanel scrollField(String labelText, JTextArea area) {
+        JPanel panel = new JPanel();
+        panel.setOpaque(false);
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.add(UiFactory.bodyLabel(labelText));
+        panel.add(Box.createVerticalStrut(8));
+        JScrollPane scrollPane = new JScrollPane(area);
+        scrollPane.setBorder(BorderFactory.createLineBorder(Theme.BORDER, 1, true));
+        panel.add(scrollPane);
+        return panel;
+    }
+
+    private JTextArea readOnlyArea(int rows) {
+        JTextArea area = UiFactory.textArea(rows);
+        area.setEditable(false);
+        area.setBackground(Theme.SURFACE_MUTED);
+        area.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+        return area;
+    }
+
+    private void updatePreviewFromForm() {
+        String role = roleField.getText().trim();
+        String moduleCode = moduleCodeField.getText().trim();
+        String moduleName = moduleNameField.getText().trim();
+        String semester = semesterField.getText().trim();
+        String hours = hoursPerWeekField.getText().trim();
+        String openings = openingsField.getText().trim();
+        String requiredSkills = requiredSkillsArea.getText().trim();
+        String description = descriptionArea.getText().trim();
+
+        previewTitleLabel.setText(role.isBlank() ? "Vacancy preview" : role);
+        StringBuilder summaryBuilder = new StringBuilder();
+        if (!moduleCode.isBlank()) {
+            summaryBuilder.append(moduleCode);
+        }
+        if (!moduleName.isBlank()) {
+            if (!summaryBuilder.isEmpty()) {
+                summaryBuilder.append(" • ");
+            }
+            summaryBuilder.append(moduleName);
+        }
+        if (!semester.isBlank()) {
+            if (!summaryBuilder.isEmpty()) {
+                summaryBuilder.append(" • ");
+            }
+            summaryBuilder.append(semester);
+        }
+        if (!hours.isBlank()) {
+            if (!summaryBuilder.isEmpty()) {
+                summaryBuilder.append(" • ");
+            }
+            summaryBuilder.append(hours).append(" hrs/week");
+        }
+        if (!openings.isBlank()) {
+            if (!summaryBuilder.isEmpty()) {
+                summaryBuilder.append(" • ");
+            }
+            summaryBuilder.append(openings).append(" opening(s)");
+        }
+        previewSummaryLabel.setText(summaryBuilder.isEmpty()
+                ? "Enter vacancy details and use Preview to confirm the listing."
+                : summaryBuilder.toString());
+        previewRequirementsArea.setText(requiredSkills.isBlank() ? "Required skills will appear here." : "• " + requiredSkills.replace(";", "\n• "));
+        previewDescriptionArea.setText(description.isBlank() ? "Description will appear here." : description);
+        previewRequirementsArea.setCaretPosition(0);
+        previewDescriptionArea.setCaretPosition(0);
+    }
+
+    private void clearPostJobForm() {
+        roleField.setText("");
+        hoursPerWeekField.setText("");
+        moduleCodeField.setText("");
+        moduleNameField.setText("");
+        semesterField.setText("");
+        requiredSkillsArea.setText("");
+        descriptionArea.setText("");
+        tagsField.setText("");
+        openingsField.setText("");
+    }
+
+    private void refreshJobSelector(String selectedJobId) {
+        jobSelector.removeAllItems();
+        for (JobPosting job : jobService.getAllJobs()) {
+            jobSelector.addItem(job);
+        }
+        if (selectedJobId != null) {
+            for (int index = 0; index < jobSelector.getItemCount(); index++) {
+                JobPosting job = jobSelector.getItemAt(index);
+                if (job.id().equals(selectedJobId)) {
+                    jobSelector.setSelectedIndex(index);
+                    return;
+                }
+            }
+        }
+        if (jobSelector.getItemCount() > 0) {
+            jobSelector.setSelectedIndex(0);
+        }
     }
 
     private void openCv(String storedPath) {
