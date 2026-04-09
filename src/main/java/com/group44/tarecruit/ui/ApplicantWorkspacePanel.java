@@ -636,9 +636,15 @@ public class ApplicantWorkspacePanel extends JPanel {
 
         try {
             CvService.StoredCv storedCv = cvService.storeCv(chooser.getSelectedFile().toPath());
-            currentCvOriginalFileName = storedCv.originalFileName();
-            currentCvStoredPath = storedCv.storedPath();
-            cvStatusLabel.setText("Current CV: " + currentCvOriginalFileName + " (remember to save profile)");
+            ApplicantProfile savedProfile = profileService.saveCvReference(
+                    currentUser.id(),
+                    storedCv.originalFileName(),
+                    storedCv.storedPath()
+            );
+            currentCvOriginalFileName = savedProfile.cvOriginalFileName();
+            currentCvStoredPath = savedProfile.cvStoredPath();
+            cvStatusLabel.setText("Current CV: " + currentCvOriginalFileName);
+            profileTimestampLabel.setText("Last updated: " + savedProfile.updatedAt().replace('T', ' '));
             JOptionPane.showMessageDialog(this, "CV uploaded successfully.");
         } catch (RuntimeException exception) {
             JOptionPane.showMessageDialog(this, exception.getMessage());
