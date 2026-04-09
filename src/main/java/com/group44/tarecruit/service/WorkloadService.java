@@ -8,6 +8,8 @@ import com.group44.tarecruit.model.JobApplication;
 import com.group44.tarecruit.model.JobPosting;
 import com.group44.tarecruit.model.UserAccount;
 
+import java.time.Clock;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -21,15 +23,36 @@ public class WorkloadService {
     private final ApplicationRepository applicationRepository;
     private final JobRepository jobRepository;
     private final UserRepository userRepository;
+    private final Clock clock;
 
     public WorkloadService(
             ApplicationRepository applicationRepository,
             JobRepository jobRepository,
             UserRepository userRepository
     ) {
+        this(applicationRepository, jobRepository, userRepository, Clock.systemDefaultZone());
+    }
+
+    WorkloadService(
+            ApplicationRepository applicationRepository,
+            JobRepository jobRepository,
+            UserRepository userRepository,
+            Clock clock
+    ) {
         this.applicationRepository = applicationRepository;
         this.jobRepository = jobRepository;
         this.userRepository = userRepository;
+        this.clock = clock;
+    }
+
+    public String resolveSemester(String filter) {
+        if (filter == null || filter.isBlank() || CURRENT_SEMESTER_FILTER.equalsIgnoreCase(filter)) {
+            return inferCurrentSemester(availableSemesters());
+        }
+        if (ALL_SEMESTERS_FILTER.equalsIgnoreCase(filter)) {
+            return "";
+        }
+        return filter.trim();
     }
 
     public List<String> availableSemesters() {
@@ -42,9 +65,7 @@ public class WorkloadService {
     }
 
     public List<WorkloadSummary> getWorkload(String filter) {
-        String resolvedSemester = filter == null || filter.isBlank() || ALL_SEMESTERS_FILTER.equalsIgnoreCase(filter)
-                ? ""
-                : filter.trim();
+        String resolvedSemester = resolveSemester(filter);
         Map<String, JobPosting> jobsById = jobRepository.findAll().stream()
                 .collect(LinkedHashMap::new, (map, job) -> map.put(job.id(), job), LinkedHashMap::putAll);
         Map<String, UserAccount> usersById = userRepository.findAll().stream()
@@ -103,6 +124,42 @@ public class WorkloadService {
 
     private boolean matchesSemester(String semester, String resolvedSemester) {
         return resolvedSemester.isBlank() || semester.equalsIgnoreCase(resolvedSemester);
+    }
+
+    private String inferCurrentSemester(List<String> semesters) {
+        if (semesters.isEmpty()) {
+            return "";
+        }
+
+        int month = LocalDate.now(clock).getMonthValue();
+        String preferredToken = month <= 6 ? "a" : "b";
+        for (String semester : semesters) {
+            if (matchesHalfYearSemester(semester, preferredToken)) {
+                return semester;
+            }
+        }
+
+        String seasonalToken = month <= 6 ? "spring" : "autumn";
+        for (String semester : semesters) {
+            String normalized = normalizeSemester(semester);
+            if (normalized.contains(seasonalToken)
+                    || (seasonalToken.equals("autumn") && normalized.contains("fall"))) {
+                return semester;
+            }
+        }
+
+        return semesters.getFirst();
+    }
+
+    private boolean matchesHalfYearSemester(String semester, String preferredToken) {
+        String normalized = normalizeSemester(semester);
+        return normalized.equals("semester " + preferredToken)
+                || normalized.equals("semester " + ("a".equals(preferredToken) ? "1" : "2"))
+                || normalized.equals("term " + ("a".equals(preferredToken) ? "1" : "2"));
+    }
+
+    private String normalizeSemester(String semester) {
+        return semester == null ? "" : semester.trim().toLowerCase().replaceAll("\\s+", " ");
     }
 
     private int parseHours(String value) {
