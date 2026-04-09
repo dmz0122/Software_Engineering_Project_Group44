@@ -44,9 +44,9 @@ public class LoginPanel extends JPanel {
 
         JLabel brand = UiFactory.titleLabel("TA Recruit");
         brand.setForeground(Theme.SURFACE);
-        JLabel subtitle = UiFactory.sectionLabel("Sprint 1 Demo");
+        JLabel subtitle = UiFactory.sectionLabel("Sprint 2 Demo");
         subtitle.setForeground(new java.awt.Color(220, 232, 255));
-        JLabel detail = UiFactory.bodyLabel("<html>Applicant profile, CV upload, vacancy browsing, job detail view and organiser applicant review all run locally with CSV persistence.</html>");
+        JLabel detail = UiFactory.bodyLabel("<html>Applicant applications, organiser vacancy publishing and admin workload monitoring now run locally with CSV persistence.</html>");
         detail.setForeground(new java.awt.Color(220, 232, 255));
 
         hero.add(brand);
@@ -60,6 +60,8 @@ public class LoginPanel extends JPanel {
         hero.add(accountHint("Existing applicants", "amy@school.edu / password123"));
         hero.add(Box.createVerticalStrut(8));
         hero.add(accountHint("Module organiser", "mo@school.edu / password123"));
+        hero.add(Box.createVerticalStrut(8));
+        hero.add(accountHint("Admin", "admin@school.edu / password123"));
         hero.add(Box.createVerticalGlue());
         return hero;
     }
@@ -116,14 +118,17 @@ public class LoginPanel extends JPanel {
         content.add(buttonRow);
         content.add(Box.createVerticalStrut(24));
 
-        JPanel quickLoginRow = new JPanel(new GridLayout(1, 2, 12, 0));
+        JPanel quickLoginRow = new JPanel(new GridLayout(1, 3, 12, 0));
         quickLoginRow.setOpaque(false);
         JButton applicantDemo = UiFactory.secondaryButton("Use Applicant Demo");
         applicantDemo.addActionListener(event -> fillCredentials("newta@school.edu", "password123"));
         JButton organiserDemo = UiFactory.secondaryButton("Use MO Demo");
         organiserDemo.addActionListener(event -> fillCredentials("mo@school.edu", "password123"));
+        JButton adminDemo = UiFactory.secondaryButton("Use Admin Demo");
+        adminDemo.addActionListener(event -> fillCredentials("admin@school.edu", "password123"));
         quickLoginRow.add(applicantDemo);
         quickLoginRow.add(organiserDemo);
+        quickLoginRow.add(adminDemo);
         content.add(quickLoginRow);
 
         card.add(content, BorderLayout.CENTER);
