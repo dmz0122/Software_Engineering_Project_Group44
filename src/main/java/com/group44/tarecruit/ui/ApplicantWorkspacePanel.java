@@ -30,7 +30,9 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.GridLayout;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public class ApplicantWorkspacePanel extends JPanel {
@@ -64,6 +66,7 @@ public class ApplicantWorkspacePanel extends JPanel {
     private final JPanel jobsListPanel;
     private final JLabel detailTitleLabel;
     private final JLabel detailSummaryLabel;
+    private final JLabel detailApplicationStatusLabel;
     private final JTextArea detailRequirementsArea;
     private final JTextArea detailDescriptionArea;
     private final JButton applyButton;
@@ -73,6 +76,7 @@ public class ApplicantWorkspacePanel extends JPanel {
     private JobPosting selectedJob;
     private String currentCvOriginalFileName = "";
     private String currentCvStoredPath = "";
+    private Map<String, JobApplication> applicationsByJobId = new LinkedHashMap<>();
 
     public ApplicantWorkspacePanel(
             ProfileService profileService,
@@ -122,6 +126,7 @@ public class ApplicantWorkspacePanel extends JPanel {
         jobsListPanel.setLayout(new BoxLayout(jobsListPanel, BoxLayout.Y_AXIS));
         detailTitleLabel = UiFactory.sectionLabel("Job Detail");
         detailSummaryLabel = UiFactory.mutedLabel("Select a role to review its details.");
+        detailApplicationStatusLabel = UiFactory.mutedLabel("Apply to see this role appear in your application tracker.");
         detailRequirementsArea = readOnlyArea();
         detailDescriptionArea = readOnlyArea();
         applyButton = UiFactory.primaryButton("Apply now");
@@ -293,6 +298,8 @@ public class ApplicantWorkspacePanel extends JPanel {
         content.add(detailTitleLabel);
         content.add(Box.createVerticalStrut(8));
         content.add(detailSummaryLabel);
+        content.add(Box.createVerticalStrut(8));
+        content.add(detailApplicationStatusLabel);
         content.add(Box.createVerticalStrut(16));
         content.add(UiFactory.bodyLabel("Requirements"));
         content.add(Box.createVerticalStrut(8));
@@ -451,9 +458,21 @@ public class ApplicantWorkspacePanel extends JPanel {
     }
 
     private void refreshJobs() {
+        applicationsByJobId = applicationService.findApplicationsForApplicant(currentUser.id()).stream()
+                .collect(LinkedHashMap::new, (map, application) -> map.put(application.jobId(), application), LinkedHashMap::putAll);
         List<JobPosting> jobs = jobService.getAllJobs();
+        if (selectedJob != null) {
+            String selectedJobId = selectedJob.id();
+            selectedJob = jobs.stream()
+                    .filter(job -> job.id().equals(selectedJobId))
+                    .findFirst()
+                    .orElse(null);
+        }
         if (!jobs.isEmpty() && selectedJob == null) {
             selectedJob = jobs.getFirst();
+        }
+        if (jobs.isEmpty()) {
+            selectedJob = null;
         }
         rebuildVerticalList(jobsListPanel, jobs.stream().map(this::jobCard).toList(), "No jobs are available right now.");
         updateJobDetailPanel();
@@ -471,15 +490,29 @@ public class ApplicantWorkspacePanel extends JPanel {
         content.add(title);
         content.add(Box.createVerticalStrut(4));
         content.add(UiFactory.mutedLabel(job.moduleCode() + " • " + job.moduleName() + " • " + job.hoursPerWeek() + " hrs/week"));
+        if (hasApplied(job)) {
+            content.add(Box.createVerticalStrut(8));
+            content.add(UiFactory.mutedLabel("Status: " + applicationsByJobId.get(job.id()).status().label()));
+        }
         content.add(Box.createVerticalStrut(10));
 
         JPanel tags = UiFactory.flowPanel(java.awt.FlowLayout.LEFT, 8, 0);
-        for (String tag : job.tags().split("\\|")) {
-            JLabel chip = UiFactory.mutedLabel("  " + tag.trim() + "  ");
-            chip.setOpaque(true);
-            chip.setBackground(Theme.SURFACE_MUTED);
-            chip.setBorder(BorderFactory.createEmptyBorder(6, 8, 6, 8));
-            tags.add(chip);
+        if (!job.tags().isBlank()) {
+            for (String tag : job.tags().split("\\|")) {
+                if (tag.isBlank()) {
+                    continue;
+                }
+                JLabel chip = UiFactory.mutedLabel("  " + tag.trim() + "  ");
+                chip.setOpaque(true);
+                chip.setBackground(Theme.SURFACE_MUTED);
+                chip.setBorder(BorderFactory.createEmptyBorder(6, 8, 6, 8));
+                tags.add(chip);
+            }
+        }
+        JobApplication existingApplication = applicationsByJobId.get(job.id());
+        if (existingApplication != null) {
+            content.add(Box.createVerticalStrut(8));
+            content.add(UiFactory.mutedLabel("Applied: " + existingApplication.status().label()));
         }
         content.add(tags);
         content.add(Box.createVerticalStrut(12));
@@ -491,6 +524,10 @@ public class ApplicantWorkspacePanel extends JPanel {
             updateJobDetailPanel();
         });
         JButton quickApplyButton = UiFactory.secondaryButton("Apply");
+        if (existingApplication != null) {
+            quickApplyButton.setText("Applied");
+            quickApplyButton.setEnabled(false);
+        }
         quickApplyButton.addActionListener(event -> {
             selectedJob = job;
             updateJobDetailPanel();
@@ -508,8 +545,10 @@ public class ApplicantWorkspacePanel extends JPanel {
         if (selectedJob == null) {
             detailTitleLabel.setText("Job Detail");
             detailSummaryLabel.setText("Select a role to review its details.");
+            detailApplicationStatusLabel.setText("Apply to see this role appear in your application tracker.");
             detailRequirementsArea.setText("No job selected.");
             detailDescriptionArea.setText("");
+            applyButton.setText("Apply now");
             applyButton.setEnabled(false);
             return;
         }
@@ -518,6 +557,19 @@ public class ApplicantWorkspacePanel extends JPanel {
         detailSummaryLabel.setText(selectedJob.moduleCode() + " • " + selectedJob.moduleName() + " • " + selectedJob.semester() + " • " + selectedJob.hoursPerWeek() + " hrs/week");
         detailRequirementsArea.setText("• " + selectedJob.requiredSkills().replace("; ", "\n• "));
         detailDescriptionArea.setText(selectedJob.description());
+        Optional<JobApplication> applicationOptional = applicationFor(selectedJob);
+        if (applicationOptional.isPresent()) {
+            JobApplication application = applicationOptional.get();
+            detailApplicationStatusLabel.setText("Application status: " + application.status().label() + " • submitted " + application.appliedAt().replace('T', ' '));
+            applyButton.setText("Already applied");
+            applyButton.setEnabled(false);
+            return;
+        }
+
+        detailApplicationStatusLabel.setText(profileService.findProfile(currentUser.id()).filter(ApplicantProfile::isComplete).isPresent()
+                ? "You can submit an application for this vacancy now."
+                : "Complete your profile before you submit an application.");
+        applyButton.setText("Apply now");
         applyButton.setEnabled(true);
     }
 
@@ -584,9 +636,15 @@ public class ApplicantWorkspacePanel extends JPanel {
 
         try {
             CvService.StoredCv storedCv = cvService.storeCv(chooser.getSelectedFile().toPath());
-            currentCvOriginalFileName = storedCv.originalFileName();
-            currentCvStoredPath = storedCv.storedPath();
-            cvStatusLabel.setText("Current CV: " + currentCvOriginalFileName + " (remember to save profile)");
+            ApplicantProfile savedProfile = profileService.saveCvReference(
+                    currentUser.id(),
+                    storedCv.originalFileName(),
+                    storedCv.storedPath()
+            );
+            currentCvOriginalFileName = savedProfile.cvOriginalFileName();
+            currentCvStoredPath = savedProfile.cvStoredPath();
+            cvStatusLabel.setText("Current CV: " + currentCvOriginalFileName);
+            profileTimestampLabel.setText("Last updated: " + savedProfile.updatedAt().replace('T', ' '));
             JOptionPane.showMessageDialog(this, "CV uploaded successfully.");
         } catch (RuntimeException exception) {
             JOptionPane.showMessageDialog(this, exception.getMessage());
@@ -642,6 +700,14 @@ public class ApplicantWorkspacePanel extends JPanel {
         } catch (RuntimeException exception) {
             JOptionPane.showMessageDialog(this, exception.getMessage());
         }
+    }
+
+    private boolean hasApplied(JobPosting job) {
+        return applicationsByJobId.containsKey(job.id());
+    }
+
+    private Optional<JobApplication> applicationFor(JobPosting job) {
+        return Optional.ofNullable(applicationsByJobId.get(job.id()));
     }
 
     private void showPage(String page) {
