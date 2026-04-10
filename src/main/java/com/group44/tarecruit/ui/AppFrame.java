@@ -15,6 +15,7 @@ import com.group44.tarecruit.service.CvService;
 import com.group44.tarecruit.service.JobService;
 import com.group44.tarecruit.service.NotificationService;
 import com.group44.tarecruit.service.ProfileService;
+import com.group44.tarecruit.service.WorkloadService;
 import com.group44.tarecruit.ui.components.Theme;
 
 import javax.swing.JFrame;
@@ -27,6 +28,7 @@ public class AppFrame extends JFrame {
     private static final String LOGIN_CARD = "login";
     private static final String APPLICANT_CARD = "applicant";
     private static final String ORGANISER_CARD = "organiser";
+    private static final String ADMIN_CARD = "admin";
 
     private final AuthService authService;
     private final ProfileService profileService;
@@ -34,11 +36,13 @@ public class AppFrame extends JFrame {
     private final ApplicationService applicationService;
     private final NotificationService notificationService;
     private final CvService cvService;
+    private final WorkloadService workloadService;
     private final JPanel rootPanel;
     private final CardLayout cardLayout;
     private final LoginPanel loginPanel;
     private final ApplicantWorkspacePanel applicantWorkspacePanel;
     private final OrganiserWorkspacePanel organiserWorkspacePanel;
+    private final AdminWorkspacePanel adminWorkspacePanel;
 
     private UserAccount currentUser;
 
@@ -64,6 +68,7 @@ public class AppFrame extends JFrame {
                 notificationService
         );
         cvService = new CvService(dataDirectory.resolve("uploads"));
+        workloadService = new WorkloadService(applicationRepository, jobRepository, userRepository);
 
         setTitle("TA Recruit");
         setSize(1360, 860);
@@ -90,10 +95,15 @@ public class AppFrame extends JFrame {
                 cvService,
                 this::logout
         );
+        adminWorkspacePanel = new AdminWorkspacePanel(
+                workloadService,
+                this::logout
+        );
 
         rootPanel.add(loginPanel, LOGIN_CARD);
         rootPanel.add(applicantWorkspacePanel, APPLICANT_CARD);
         rootPanel.add(organiserWorkspacePanel, ORGANISER_CARD);
+        rootPanel.add(adminWorkspacePanel, ADMIN_CARD);
         setContentPane(rootPanel);
         showCard(LOGIN_CARD);
     }
@@ -109,10 +119,14 @@ public class AppFrame extends JFrame {
             applicantWorkspacePanel.setCurrentUser(user);
             applicantWorkspacePanel.refreshAll();
             showCard(APPLICANT_CARD);
-        } else {
+        } else if (user.role() == Role.ORGANISER) {
             organiserWorkspacePanel.setCurrentUser(user);
             organiserWorkspacePanel.refreshAll();
             showCard(ORGANISER_CARD);
+        } else {
+            adminWorkspacePanel.setCurrentUser(user);
+            adminWorkspacePanel.refreshAll();
+            showCard(ADMIN_CARD);
         }
     }
 
