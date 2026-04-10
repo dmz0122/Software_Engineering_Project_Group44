@@ -54,4 +54,14 @@ class ProfileServiceTest {
                 ""
         )));
     }
+
+    @Test
+    void savesCvReferenceWithoutRequiringCompleteProfile() {
+        ProfileService service = new ProfileService(new ProfileRepository(tempDir.resolve("profiles.csv")));
+
+        ApplicantProfile saved = service.saveCvReference("ta-new", "resume.pdf", "data/uploads/resume.pdf");
+
+        assertEquals("resume.pdf", saved.cvOriginalFileName());
+        assertEquals("data/uploads/resume.pdf", service.findProfile("ta-new").orElseThrow().cvStoredPath());
+    }
 }

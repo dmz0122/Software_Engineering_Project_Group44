@@ -36,6 +36,39 @@ public class ProfileService {
         return savedProfile;
     }
 
+    public ApplicantProfile saveCvReference(String applicantId, String originalFileName, String storedPath) {
+        ApplicantProfile existingProfile = profileRepository.findByApplicantId(applicantId)
+                .orElse(new ApplicantProfile(
+                        applicantId,
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        ""
+                ));
+
+        ApplicantProfile savedProfile = new ApplicantProfile(
+                applicantId,
+                existingProfile.fullName(),
+                existingProfile.studentId(),
+                existingProfile.programme(),
+                existingProfile.year(),
+                existingProfile.skills(),
+                existingProfile.availability(),
+                existingProfile.gpa(),
+                originalFileName == null ? "" : originalFileName.trim(),
+                storedPath == null ? "" : storedPath.trim(),
+                LocalDateTime.now().toString()
+        );
+        profileRepository.upsert(savedProfile);
+        return savedProfile;
+    }
+
     private void validate(ApplicantProfile profile) {
         if (profile.fullName().isBlank()
                 || profile.studentId().isBlank()
