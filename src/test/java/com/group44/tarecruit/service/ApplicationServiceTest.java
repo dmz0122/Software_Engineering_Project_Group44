@@ -20,6 +20,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ApplicationServiceTest {
     @TempDir
@@ -84,6 +85,56 @@ class ApplicationServiceTest {
     }
 
     @Test
+    void applyingForJobCreatesApplicationAndNotification() {
+        ApplicationRepository applicationRepository = new ApplicationRepository(tempDir.resolve("applications-apply.csv"));
+        JobRepository jobRepository = new JobRepository(tempDir.resolve("jobs-apply.csv"));
+        ProfileRepository profileRepository = new ProfileRepository(tempDir.resolve("profiles-apply.csv"));
+        UserRepository userRepository = new UserRepository(tempDir.resolve("users-apply.csv"));
+        NotificationRepository notificationRepository = new NotificationRepository(tempDir.resolve("notifications-apply.csv"));
+
+        jobRepository.saveAll(List.of(new JobPosting(
+                "job-1",
+                "Programming TA",
+                "CS101",
+                "Introduction to Programming",
+                "Semester A",
+                "8",
+                "Java basics; lab support",
+                "Java|Support",
+                "Help in labs",
+                2
+        )));
+        userRepository.saveAll(List.of(new UserAccount("ta-1", Role.APPLICANT, "Amy Parker", "amy@school.edu", "password123")));
+        profileRepository.saveAll(List.of(new ApplicantProfile(
+                "ta-1",
+                "Amy Parker",
+                "20240001",
+                "BSc Computer Science",
+                "Year 2",
+                "Java, tutoring",
+                "Mon/Wed",
+                "3.8",
+                "amy_cv.txt",
+                "cv.txt",
+                "2026-04-01T10:00:00"
+        )));
+
+        ApplicationService service = new ApplicationService(
+                applicationRepository,
+                jobRepository,
+                profileRepository,
+                userRepository,
+                new NotificationService(notificationRepository)
+        );
+
+        JobApplication application = service.applyForJob("job-1", "ta-1");
+
+        assertEquals(ApplicationStatus.APPLIED, application.status());
+        assertTrue(service.hasApplicantApplied("ta-1", "job-1"));
+        assertEquals(1, notificationRepository.findAll().size());
+    }
+
+    @Test
     void preventsSelectingMoreApplicantsThanOpenings() {
         ApplicationRepository applicationRepository = new ApplicationRepository(tempDir.resolve("applications-2.csv"));
         JobRepository jobRepository = new JobRepository(tempDir.resolve("jobs-2.csv"));
@@ -125,5 +176,59 @@ class ApplicationServiceTest {
         );
 
         assertThrows(IllegalArgumentException.class, () -> service.selectApplicant("app-2"));
+    }
+
+    @Test
+    void preventsDuplicateApplication() {
+        ApplicationRepository applicationRepository = new ApplicationRepository(tempDir.resolve("applications-duplicate.csv"));
+        JobRepository jobRepository = new JobRepository(tempDir.resolve("jobs-duplicate.csv"));
+        ProfileRepository profileRepository = new ProfileRepository(tempDir.resolve("profiles-duplicate.csv"));
+        UserRepository userRepository = new UserRepository(tempDir.resolve("users-duplicate.csv"));
+        NotificationRepository notificationRepository = new NotificationRepository(tempDir.resolve("notifications-duplicate.csv"));
+
+        jobRepository.saveAll(List.of(new JobPosting(
+                "job-1",
+                "Programming TA",
+                "CS101",
+                "Introduction to Programming",
+                "Semester A",
+                "8",
+                "Java basics; lab support",
+                "Java|Support",
+                "Help in labs",
+                2
+        )));
+        userRepository.saveAll(List.of(new UserAccount("ta-1", Role.APPLICANT, "Amy Parker", "amy@school.edu", "password123")));
+        profileRepository.saveAll(List.of(new ApplicantProfile(
+                "ta-1",
+                "Amy Parker",
+                "20240001",
+                "BSc Computer Science",
+                "Year 2",
+                "Java, tutoring",
+                "Mon/Wed",
+                "3.8",
+                "",
+                "",
+                "2026-04-01T10:00:00"
+        )));
+        applicationRepository.saveAll(List.of(new JobApplication(
+                "app-1",
+                "job-1",
+                "ta-1",
+                ApplicationStatus.APPLIED,
+                "2026-04-01T10:00:00",
+                ""
+        )));
+
+        ApplicationService service = new ApplicationService(
+                applicationRepository,
+                jobRepository,
+                profileRepository,
+                userRepository,
+                new NotificationService(notificationRepository)
+        );
+
+        assertThrows(IllegalArgumentException.class, () -> service.applyForJob("job-1", "ta-1"));
     }
 }
