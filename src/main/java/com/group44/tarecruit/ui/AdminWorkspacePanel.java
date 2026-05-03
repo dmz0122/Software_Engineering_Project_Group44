@@ -20,6 +20,7 @@ import java.util.List;
 
 public class AdminWorkspacePanel extends JPanel {
     private final WorkloadService workloadService;
+    private final Runnable accountAction;
     private final Runnable logoutAction;
 
     private final JComboBox<String> semesterFilterBox;
@@ -30,8 +31,9 @@ public class AdminWorkspacePanel extends JPanel {
 
     private UserAccount currentUser;
 
-    public AdminWorkspacePanel(WorkloadService workloadService, Runnable logoutAction) {
+    public AdminWorkspacePanel(WorkloadService workloadService, Runnable accountAction, Runnable logoutAction) {
         this.workloadService = workloadService;
+        this.accountAction = accountAction;
         this.logoutAction = logoutAction;
 
         setLayout(new BorderLayout());
@@ -77,6 +79,10 @@ public class AdminWorkspacePanel extends JPanel {
         sidebar.add(UiFactory.mutedLabel("Admin workload monitor"));
         sidebar.add(Box.createVerticalStrut(28));
         sidebar.add(UiFactory.navButton("Workload"));
+        sidebar.add(Box.createVerticalStrut(12));
+        JButton accountButton = UiFactory.navButton("Account");
+        accountButton.addActionListener(event -> accountAction.run());
+        sidebar.add(accountButton);
         sidebar.add(Box.createVerticalGlue());
 
         JButton logoutButton = UiFactory.lightButton("Sign out");
