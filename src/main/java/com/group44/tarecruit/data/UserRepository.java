@@ -42,6 +42,19 @@ public class UserRepository {
                 .findFirst();
     }
 
+    public Optional<UserAccount> findById(String id) {
+        return findAll().stream()
+                .filter(user -> user.id().equals(id))
+                .findFirst();
+    }
+
+    public void upsert(UserAccount userAccount) {
+        List<UserAccount> updated = new ArrayList<>(findAll());
+        updated.removeIf(existing -> existing.id().equals(userAccount.id()));
+        updated.add(userAccount);
+        saveAll(updated);
+    }
+
     public void saveAll(List<UserAccount> users) {
         List<List<String>> rows = users.stream()
                 .map(user -> List.of(
