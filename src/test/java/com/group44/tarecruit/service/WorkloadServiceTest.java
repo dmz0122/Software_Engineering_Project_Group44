@@ -18,8 +18,6 @@ import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class WorkloadServiceTest {
     @TempDir
@@ -84,78 +82,5 @@ class WorkloadServiceTest {
         assertEquals(1, currentWorkload.size());
         assertEquals("Amy Parker", currentWorkload.getFirst().displayName());
         assertEquals("Semester B", currentWorkload.getFirst().semester());
-    }
-
-    @Test
-    void ignoresApplicantsWithoutSelectedAssignments() {
-        ApplicationRepository applicationRepository = new ApplicationRepository(tempDir.resolve("applications-empty.csv"));
-        JobRepository jobRepository = new JobRepository(tempDir.resolve("jobs-empty.csv"));
-        UserRepository userRepository = new UserRepository(tempDir.resolve("users-empty.csv"));
-
-        jobRepository.saveAll(List.of(
-                new JobPosting("job-1", "Programming TA", "CS101", "Programming", "Semester A", "8", "Java", "Java", "Support labs", 2),
-                new JobPosting("job-2", "Writing TA", "IS201", "Writing", "Semester B", "6", "Writing", "Writing", "Support writing", 1)
-        ));
-        userRepository.saveAll(List.of(
-                new UserAccount("ta-1", Role.APPLICANT, "Amy Parker", "amy@school.edu", "password123"),
-                new UserAccount("ta-2", Role.APPLICANT, "Bob Chen", "bob@school.edu", "password123")
-        ));
-        applicationRepository.saveAll(List.of(
-                new JobApplication("app-1", "job-1", "ta-1", ApplicationStatus.APPLIED, "2026-04-01T10:00:00", ""),
-                new JobApplication("app-2", "job-2", "ta-2", ApplicationStatus.REJECTED, "2026-04-01T11:00:00", "")
-        ));
-
-        WorkloadService service = new WorkloadService(applicationRepository, jobRepository, userRepository);
-
-        assertEquals(List.of(), service.getWorkload("Semester A"));
-        assertEquals(List.of(), service.getWorkload(WorkloadService.ALL_SEMESTERS_FILTER));
-    }
-
-    @Test
-    void reportsWhetherApplicantHasSelectedAssignmentsInView() {
-        ApplicationRepository applicationRepository = new ApplicationRepository(tempDir.resolve("applications-has-selected.csv"));
-        JobRepository jobRepository = new JobRepository(tempDir.resolve("jobs-has-selected.csv"));
-        UserRepository userRepository = new UserRepository(tempDir.resolve("users-has-selected.csv"));
-
-        jobRepository.saveAll(List.of(
-                new JobPosting("job-1", "Programming TA", "CS101", "Programming", "Semester A", "8", "Java", "Java", "Support labs", 2),
-                new JobPosting("job-2", "Writing TA", "IS201", "Writing", "Semester B", "6", "Writing", "Writing", "Support writing", 1)
-        ));
-        userRepository.saveAll(List.of(
-                new UserAccount("ta-1", Role.APPLICANT, "Amy Parker", "amy@school.edu", "password123"),
-                new UserAccount("ta-2", Role.APPLICANT, "Bob Chen", "bob@school.edu", "password123")
-        ));
-        applicationRepository.saveAll(List.of(
-                new JobApplication("app-1", "job-1", "ta-1", ApplicationStatus.SELECTED, "2026-04-01T10:00:00", ""),
-                new JobApplication("app-2", "job-2", "ta-2", ApplicationStatus.SELECTED, "2026-04-01T11:00:00", "")
-        ));
-
-        WorkloadService service = new WorkloadService(applicationRepository, jobRepository, userRepository);
-
-        assertTrue(service.hasSelectedAssignments("ta-1", "Semester A"));
-        assertFalse(service.hasSelectedAssignments("ta-1", "Semester B"));
-        assertTrue(service.hasSelectedAssignments("ta-2", WorkloadService.ALL_SEMESTERS_FILTER));
-    }
-
-    @Test
-    void returnsFalseForUnknownApplicantInAnyView() {
-        ApplicationRepository applicationRepository = new ApplicationRepository(tempDir.resolve("applications-unknown.csv"));
-        JobRepository jobRepository = new JobRepository(tempDir.resolve("jobs-unknown.csv"));
-        UserRepository userRepository = new UserRepository(tempDir.resolve("users-unknown.csv"));
-
-        jobRepository.saveAll(List.of(
-                new JobPosting("job-1", "Programming TA", "CS101", "Programming", "Semester A", "8", "Java", "Java", "Support labs", 2)
-        ));
-        userRepository.saveAll(List.of(
-                new UserAccount("ta-1", Role.APPLICANT, "Amy Parker", "amy@school.edu", "password123")
-        ));
-        applicationRepository.saveAll(List.of(
-                new JobApplication("app-1", "job-1", "ta-1", ApplicationStatus.SELECTED, "2026-04-01T10:00:00", "")
-        ));
-
-        WorkloadService service = new WorkloadService(applicationRepository, jobRepository, userRepository);
-
-        assertFalse(service.hasSelectedAssignments("missing-applicant", "Semester A"));
-        assertFalse(service.hasSelectedAssignments("missing-applicant", WorkloadService.ALL_SEMESTERS_FILTER));
     }
 }

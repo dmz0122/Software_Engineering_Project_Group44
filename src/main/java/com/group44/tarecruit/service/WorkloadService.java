@@ -100,11 +100,6 @@ public class WorkloadService {
                 .toList();
     }
 
-    public boolean hasSelectedAssignments(String applicantId, String filter) {
-        return getWorkload(filter).stream()
-                .anyMatch(summary -> summary.applicantId().equals(applicantId));
-    }
-
     private WorkloadSummary toSummary(
             String applicantId,
             List<WorkloadAssignment> assignments,
