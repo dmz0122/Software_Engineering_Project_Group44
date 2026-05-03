@@ -59,6 +59,8 @@ class ApplicationServiceTest {
                 "3.8",
                 "amy_cv.txt",
                 "cv.txt",
+                "",
+                "",
                 "2026-04-01T10:00:00"
         )));
         applicationRepository.saveAll(List.of(new JobApplication(
@@ -117,6 +119,8 @@ class ApplicationServiceTest {
                 "3.8",
                 "amy_cv.txt",
                 "cv.txt",
+                "",
+                "",
                 "2026-04-01T10:00:00"
         )));
 
@@ -160,8 +164,8 @@ class ApplicationServiceTest {
                 new UserAccount("ta-2", Role.APPLICANT, "Bob Chen", "bob@school.edu", "password123")
         ));
         profileRepository.saveAll(List.of(
-                new ApplicantProfile("ta-1", "Amy Parker", "20240001", "CS", "Year 2", "Java", "Mon", "3.8", "", "", ""),
-                new ApplicantProfile("ta-2", "Bob Chen", "20240002", "CS", "Year 2", "Java", "Tue", "3.7", "", "", "")
+                new ApplicantProfile("ta-1", "Amy Parker", "20240001", "CS", "Year 2", "Java", "Mon", "3.8", "", "", "", "", ""),
+                new ApplicantProfile("ta-2", "Bob Chen", "20240002", "CS", "Year 2", "Java", "Tue", "3.7", "", "", "", "", "")
         ));
         applicationRepository.saveAll(List.of(
                 new JobApplication("app-1", "job-1", "ta-1", ApplicationStatus.SELECTED, "2026-04-01T10:00:00", ""),
@@ -209,6 +213,8 @@ class ApplicationServiceTest {
                 "Java, tutoring",
                 "Mon/Wed",
                 "3.8",
+                "",
+                "",
                 "",
                 "",
                 "2026-04-01T10:00:00"
