@@ -264,8 +264,8 @@ class ApplicationServiceTest {
                 new UserAccount("ta-2", Role.APPLICANT, "Bob Chen", "bob@school.edu", "password123")
         ));
         profileRepository.saveAll(List.of(
-                new ApplicantProfile("ta-1", "Amy Parker", "20240001", "CS", "Year 2", "Java, tutoring", "Mon", "3.8", "", "", ""),
-                new ApplicantProfile("ta-2", "Bob Chen", "20240002", "CS", "Year 2", "Algorithms", "Tue", "3.7", "", "", "")
+                new ApplicantProfile("ta-1", "Amy Parker", "20240001", "CS", "Year 2", "Java, tutoring", "Mon", "3.8", "", "", "", "", ""),
+                new ApplicantProfile("ta-2", "Bob Chen", "20240002", "CS", "Year 2", "Algorithms", "Tue", "3.7", "", "", "", "", "")
         ));
         applicationRepository.saveAll(List.of(
                 new JobApplication("app-1", "job-1", "ta-1", ApplicationStatus.UNDER_REVIEW, "2026-04-01T10:00:00", ""),
@@ -301,7 +301,7 @@ class ApplicationServiceTest {
                 new JobPosting("job-2", "Maths TA", "MA102", "Maths", "Semester A", "6", "Excel", "Excel", "Support workshops", 1)
         ));
         userRepository.saveAll(List.of(new UserAccount("ta-1", Role.APPLICANT, "Amy Parker", "amy@school.edu", "password123")));
-        profileRepository.saveAll(List.of(new ApplicantProfile("ta-1", "Amy Parker", "20240001", "CS", "Year 2", "Java", "Mon", "3.8", "", "", "")));
+        profileRepository.saveAll(List.of(new ApplicantProfile("ta-1", "Amy Parker", "20240001", "CS", "Year 2", "Java", "Mon", "3.8", "", "", "", "", "")));
         applicationRepository.saveAll(List.of(
                 new JobApplication("app-1", "job-1", "ta-1", ApplicationStatus.SHORTLISTED, "2026-04-01T10:00:00", ""),
                 new JobApplication("app-2", "job-2", "ta-1", ApplicationStatus.UNDER_REVIEW, "2026-04-01T11:00:00", "")
@@ -346,7 +346,7 @@ class ApplicationServiceTest {
                 2
         )));
         userRepository.saveAll(List.of(new UserAccount("ta-1", Role.APPLICANT, "Amy Parker", "amy@school.edu", "password123")));
-        profileRepository.saveAll(List.of(new ApplicantProfile("ta-1", "Amy Parker", "20240001", "CS", "Year 2", "Java", "Mon", "3.8", "", "", "")));
+        profileRepository.saveAll(List.of(new ApplicantProfile("ta-1", "Amy Parker", "20240001", "CS", "Year 2", "Java", "Mon", "3.8", "", "", "", "", "")));
         applicationRepository.saveAll(List.of(
                 new JobApplication("app-1", "job-1", "ta-1", ApplicationStatus.APPLIED, "2026-04-01T10:00:00", ""),
                 new JobApplication("app-2", "job-1", "ta-1", ApplicationStatus.SELECTED, "2026-04-02T10:00:00", "")
@@ -381,7 +381,7 @@ class ApplicationServiceTest {
                 new JobPosting("job-2", "Writing TA", "IS201", "Writing", "Semester B", "4", "Writing", "Writing", "Support essays", 1)
         ));
         userRepository.saveAll(List.of(new UserAccount("ta-1", Role.APPLICANT, "Amy Parker", "amy@school.edu", "password123")));
-        profileRepository.saveAll(List.of(new ApplicantProfile("ta-1", "Amy Parker", "20240001", "CS", "Year 2", "Java", "Mon", "3.8", "", "", "")));
+        profileRepository.saveAll(List.of(new ApplicantProfile("ta-1", "Amy Parker", "20240001", "CS", "Year 2", "Java", "Mon", "3.8", "", "", "", "", "")));
         applicationRepository.saveAll(List.of(
                 new JobApplication("app-1", "job-1", "ta-1", ApplicationStatus.APPLIED, "2026-04-01T10:00:00", ""),
                 new JobApplication("app-2", "job-2", "ta-1", ApplicationStatus.SELECTED, "2026-04-02T10:00:00", "")
