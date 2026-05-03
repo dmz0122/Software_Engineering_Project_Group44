@@ -240,6 +240,54 @@ class ApplicationServiceTest {
     }
 
     @Test
+    void rejectingApplicantUpdatesStatusAndCreatesNotification() {
+        ApplicationRepository applicationRepository = new ApplicationRepository(tempDir.resolve("applications-reject.csv"));
+        JobRepository jobRepository = new JobRepository(tempDir.resolve("jobs-reject.csv"));
+        ProfileRepository profileRepository = new ProfileRepository(tempDir.resolve("profiles-reject.csv"));
+        UserRepository userRepository = new UserRepository(tempDir.resolve("users-reject.csv"));
+        NotificationRepository notificationRepository = new NotificationRepository(tempDir.resolve("notifications-reject.csv"));
+
+        jobRepository.saveAll(List.of(new JobPosting(
+                "job-1",
+                "Programming TA",
+                "CS101",
+                "Introduction to Programming",
+                "Semester A",
+                "8",
+                "Java basics; lab support",
+                "Java|Support",
+                "Help in labs",
+                2
+        )));
+        userRepository.saveAll(List.of(new UserAccount("ta-1", Role.APPLICANT, "Amy Parker", "amy@school.edu", "password123")));
+        profileRepository.saveAll(List.of(new ApplicantProfile("ta-1", "Amy Parker", "20240001", "CS", "Year 2", "Java", "Mon", "3.8", "", "", "", "", "")));
+        applicationRepository.saveAll(List.of(new JobApplication(
+                "app-1",
+                "job-1",
+                "ta-1",
+                ApplicationStatus.UNDER_REVIEW,
+                "2026-04-01T10:00:00",
+                ""
+        )));
+
+        ApplicationService service = new ApplicationService(
+                applicationRepository,
+                jobRepository,
+                profileRepository,
+                userRepository,
+                new NotificationService(notificationRepository)
+        );
+
+        service.rejectApplicant("app-1", "Stronger lab experience required.");
+
+        JobApplication updated = applicationRepository.findById("app-1").orElseThrow();
+        assertEquals(ApplicationStatus.REJECTED, updated.status());
+        assertEquals("Stronger lab experience required.", updated.note());
+        assertEquals(1, notificationRepository.findAll().size());
+        assertThrows(IllegalArgumentException.class, () -> service.rejectApplicant("app-1", "Second rejection"));
+    }
+
+    @Test
     void shortlistPersistsAndSearchIsCaseInsensitive() {
         ApplicationRepository applicationRepository = new ApplicationRepository(tempDir.resolve("applications-shortlist.csv"));
         JobRepository jobRepository = new JobRepository(tempDir.resolve("jobs-shortlist.csv"));
