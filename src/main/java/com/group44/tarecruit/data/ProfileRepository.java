@@ -19,6 +19,8 @@ public class ProfileRepository {
             "gpa",
             "cvOriginalFileName",
             "cvStoredPath",
+            "avatarOriginalFileName",
+            "avatarStoredPath",
             "updatedAt"
     );
 
@@ -36,6 +38,7 @@ public class ProfileRepository {
         List<ApplicantProfile> profiles = new ArrayList<>();
         for (int index = 1; index < rows.size(); index++) {
             List<String> row = rows.get(index);
+            boolean legacyRow = row.size() <= 11;
             profiles.add(new ApplicantProfile(
                     valueAt(row, 0),
                     valueAt(row, 1),
@@ -47,7 +50,9 @@ public class ProfileRepository {
                     valueAt(row, 7),
                     valueAt(row, 8),
                     valueAt(row, 9),
-                    valueAt(row, 10)
+                    legacyRow ? "" : valueAt(row, 10),
+                    legacyRow ? "" : valueAt(row, 11),
+                    legacyRow ? valueAt(row, 10) : valueAt(row, 12)
             ));
         }
         return profiles;
@@ -79,6 +84,8 @@ public class ProfileRepository {
                         profile.gpa(),
                         profile.cvOriginalFileName(),
                         profile.cvStoredPath(),
+                        profile.avatarOriginalFileName(),
+                        profile.avatarStoredPath(),
                         profile.updatedAt()
                 ))
                 .toList();
