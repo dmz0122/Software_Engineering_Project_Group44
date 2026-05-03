@@ -89,6 +89,7 @@ public class AppFrame extends JFrame {
                 applicationService,
                 notificationService,
                 cvService,
+                this::logout,
                 this::logout
         );
         organiserWorkspacePanel = new OrganiserWorkspacePanel(
