@@ -15,7 +15,8 @@ public class ApplicationRepository {
             "applicantId",
             "status",
             "appliedAt",
-            "note"
+            "note",
+            "interviewAt"
     );
 
     private final Path filePath;
@@ -38,7 +39,8 @@ public class ApplicationRepository {
                     valueAt(row, 2),
                     ApplicationStatus.fromLabel(valueAt(row, 3)),
                     valueAt(row, 4),
-                    valueAt(row, 5)
+                    valueAt(row, 5),
+                    valueAt(row, 6)
             ));
         }
         return applications;
@@ -57,6 +59,12 @@ public class ApplicationRepository {
         saveAll(updated);
     }
 
+    public void deleteById(String applicationId) {
+        List<JobApplication> updated = new ArrayList<>(findAll());
+        updated.removeIf(existing -> existing.id().equals(applicationId));
+        saveAll(updated);
+    }
+
     public void saveAll(List<JobApplication> applications) {
         List<List<String>> rows = applications.stream()
                 .map(application -> List.of(
@@ -65,7 +73,8 @@ public class ApplicationRepository {
                         application.applicantId(),
                         application.status().label(),
                         application.appliedAt(),
-                        application.note()
+                        application.note(),
+                        application.interviewAt()
                 ))
                 .toList();
         CsvUtils.write(filePath, HEADER, rows);

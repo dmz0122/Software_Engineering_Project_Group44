@@ -10,6 +10,7 @@ import com.group44.tarecruit.model.JobApplication;
 import com.group44.tarecruit.model.JobPosting;
 import com.group44.tarecruit.model.UserAccount;
 
+import java.time.format.DateTimeParseException;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
@@ -38,18 +39,29 @@ public class ApplicationService {
     }
 
     public List<JobApplication> findApplicationsForApplicant(String applicantId) {
+        return findApplicationsForApplicant(applicantId, "", null);
+    }
+
+    public List<JobApplication> findApplicationsForApplicant(String applicantId, String semesterFilter, ApplicationStatus statusFilter) {
         return applicationRepository.findAll().stream()
                 .filter(application -> application.applicantId().equals(applicantId))
+                .filter(application -> matchesApplicationFilters(application, semesterFilter, statusFilter))
                 .sorted(Comparator.comparing(JobApplication::appliedAt).reversed())
                 .toList();
     }
 
     public List<ApplicantReviewItem> findApplicantsForJob(String jobId) {
+        return findApplicantsForJob(jobId, "");
+    }
+
+    public List<ApplicantReviewItem> findApplicantsForJob(String jobId, String searchQuery) {
         JobPosting job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new IllegalArgumentException("Job not found."));
+        String normalizedQuery = normalize(searchQuery);
         return applicationRepository.findAll().stream()
                 .filter(application -> application.jobId().equals(jobId))
                 .map(application -> buildReviewItem(job, application))
+                .filter(item -> matchesApplicantQuery(item, normalizedQuery))
                 .sorted(Comparator.comparingInt(ApplicantReviewItem::fitScore).reversed())
                 .toList();
     }
@@ -75,7 +87,8 @@ public class ApplicationService {
                 applicantId,
                 ApplicationStatus.APPLIED,
                 LocalDateTime.now().toString(),
-                "Application received and queued for organiser review."
+                "Application received and queued for organiser review.",
+                ""
         );
         applicationRepository.upsert(application);
         notificationService.notifyUser(
@@ -97,22 +110,113 @@ public class ApplicationService {
         if (selectedCountForJob(job.id()) >= job.openings()) {
             throw new IllegalArgumentException("All available openings for this job have already been filled.");
         }
+        if (application.status() == ApplicationStatus.REJECTED) {
+            throw new IllegalArgumentException("Rejected applicants cannot be selected.");
+        }
+        if (application.status() == ApplicationStatus.WITHDRAWN) {
+            throw new IllegalArgumentException("Withdrawn applications cannot be selected.");
+        }
 
-        JobApplication updated = new JobApplication(
-                application.id(),
-                application.jobId(),
-                application.applicantId(),
+        applicationRepository.upsert(updateApplication(
+                application,
                 ApplicationStatus.SELECTED,
-                application.appliedAt(),
-                application.note()
-        );
-        applicationRepository.upsert(updated);
+                resolveNote("", "You have been selected for this role."),
+                application.interviewAt()
+        ));
 
         notificationService.notifyUser(
                 application.applicantId(),
                 "Selection result",
                 "You have been selected for " + job.title() + "."
         );
+    }
+
+    public void shortlistApplicant(String applicationId, String organiserNote) {
+        JobApplication application = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new IllegalArgumentException("Application not found."));
+        if (application.status() == ApplicationStatus.SHORTLISTED) {
+            throw new IllegalArgumentException("This applicant has already been shortlisted.");
+        }
+        ensureActionAllowed(application);
+        JobPosting job = jobRepository.findById(application.jobId()).orElseThrow();
+        applicationRepository.upsert(updateApplication(
+                application,
+                ApplicationStatus.SHORTLISTED,
+                resolveNote(organiserNote, "Shortlisted for the next review step."),
+                ""
+        ));
+        notificationService.notifyUser(
+                application.applicantId(),
+                "Application shortlisted",
+                "You have been shortlisted for " + job.title() + "."
+        );
+    }
+
+    public void rejectApplicant(String applicationId, String organiserNote) {
+        JobApplication application = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new IllegalArgumentException("Application not found."));
+        if (application.status() == ApplicationStatus.REJECTED) {
+            throw new IllegalArgumentException("This applicant has already been rejected.");
+        }
+        ensureActionAllowed(application);
+        JobPosting job = jobRepository.findById(application.jobId()).orElseThrow();
+        applicationRepository.upsert(updateApplication(
+                application,
+                ApplicationStatus.REJECTED,
+                resolveNote(organiserNote, "Thank you for applying. This application was not selected."),
+                ""
+        ));
+        notificationService.notifyUser(
+                application.applicantId(),
+                "Application update",
+                "Your application for " + job.title() + " was not successful."
+        );
+    }
+
+    public void scheduleInterview(String applicationId, String requestedInterviewAt, String organiserNote) {
+        JobApplication application = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new IllegalArgumentException("Application not found."));
+        ensureActionAllowed(application);
+        String interviewAt = parseInterviewAt(requestedInterviewAt);
+        boolean conflict = applicationRepository.findAll().stream()
+                .filter(existing -> !existing.id().equals(application.id()))
+                .filter(existing -> existing.applicantId().equals(application.applicantId()))
+                .filter(existing -> existing.status() == ApplicationStatus.INTERVIEW_SCHEDULED)
+                .anyMatch(existing -> interviewAt.equals(existing.interviewAt()));
+        if (conflict) {
+            throw new IllegalArgumentException("This applicant already has an interview scheduled at that time.");
+        }
+
+        JobPosting job = jobRepository.findById(application.jobId()).orElseThrow();
+        applicationRepository.upsert(updateApplication(
+                application,
+                ApplicationStatus.INTERVIEW_SCHEDULED,
+                resolveNote(organiserNote, "Interview scheduled. Please attend on time."),
+                interviewAt
+        ));
+        notificationService.notifyUser(
+                application.applicantId(),
+                "Interview scheduled",
+                "Your interview for " + job.title() + " is scheduled for " + formatDateTime(interviewAt) + "."
+        );
+    }
+
+    public void withdrawApplication(String applicationId, String applicantId) {
+        JobApplication application = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new IllegalArgumentException("Application not found."));
+        if (!application.applicantId().equals(applicantId)) {
+            throw new IllegalArgumentException("You can only withdraw your own application.");
+        }
+        if (application.status() == ApplicationStatus.SELECTED) {
+            throw new IllegalArgumentException("Selected applications cannot be withdrawn.");
+        }
+        applicationRepository.deleteById(applicationId);
+
+        jobRepository.findById(application.jobId()).ifPresent(job -> notificationService.notifyUser(
+                applicantId,
+                "Application withdrawn",
+                "Your application for " + job.title() + " has been withdrawn."
+        ));
     }
 
     public List<JobPosting> jobsWithApplicants() {
@@ -143,6 +247,17 @@ public class ApplicationService {
                 .count();
     }
 
+    public List<String> availableApplicationSemestersForApplicant(String applicantId) {
+        return findApplicationsForApplicant(applicantId).stream()
+                .map(this::findJobForApplication)
+                .flatMap(Optional::stream)
+                .map(JobPosting::semester)
+                .filter(semester -> !semester.isBlank())
+                .distinct()
+                .sorted()
+                .toList();
+    }
+
     private ApplicantReviewItem buildReviewItem(JobPosting job, JobApplication application) {
         UserAccount applicant = userRepository.findAll().stream()
                 .filter(user -> user.id().equals(application.applicantId()))
@@ -169,6 +284,35 @@ public class ApplicationService {
         return new ApplicantReviewItem(application, applicant, profile, fitScore);
     }
 
+    private boolean matchesApplicationFilters(JobApplication application, String semesterFilter, ApplicationStatus statusFilter) {
+        if (statusFilter != null && application.status() != statusFilter) {
+            return false;
+        }
+        if (semesterFilter == null || semesterFilter.isBlank() || "All semesters".equalsIgnoreCase(semesterFilter)) {
+            return true;
+        }
+        return findJobForApplication(application)
+                .map(JobPosting::semester)
+                .map(semester -> semester.equalsIgnoreCase(semesterFilter.trim()))
+                .orElse(false);
+    }
+
+    private boolean matchesApplicantQuery(ApplicantReviewItem item, String normalizedQuery) {
+        if (normalizedQuery.isBlank()) {
+            return true;
+        }
+        String combined = String.join(" ",
+                item.applicant().displayName(),
+                item.profile().fullName(),
+                item.profile().studentId(),
+                item.profile().programme(),
+                item.profile().skills(),
+                item.profile().availability(),
+                item.application().status().label()
+        ).toLowerCase();
+        return combined.contains(normalizedQuery);
+    }
+
     private int calculateFitScore(String requiredSkills, String applicantSkills) {
         if (requiredSkills.isBlank() || applicantSkills.isBlank()) {
             return 0;
@@ -189,6 +333,66 @@ public class ApplicationService {
                 .map(String::trim)
                 .filter(token -> !token.isBlank())
                 .toList();
+    }
+
+    private JobApplication updateApplication(
+            JobApplication source,
+            ApplicationStatus status,
+            String note,
+            String interviewAt
+    ) {
+        return new JobApplication(
+                source.id(),
+                source.jobId(),
+                source.applicantId(),
+                status,
+                source.appliedAt(),
+                note,
+                interviewAt
+        );
+    }
+
+    private void ensureActionAllowed(JobApplication application) {
+        if (application.status() == ApplicationStatus.SELECTED) {
+            throw new IllegalArgumentException("Selected applicants cannot be updated again.");
+        }
+        if (application.status() == ApplicationStatus.REJECTED) {
+            throw new IllegalArgumentException("Rejected applicants cannot be updated again.");
+        }
+        if (application.status() == ApplicationStatus.WITHDRAWN) {
+            throw new IllegalArgumentException("Withdrawn applications cannot be updated again.");
+        }
+    }
+
+    private String resolveNote(String requestedNote, String fallbackNote) {
+        String normalizedRequested = normalize(requestedNote);
+        if (!normalizedRequested.isBlank()) {
+            return requestedNote.trim();
+        }
+        return fallbackNote;
+    }
+
+    private String parseInterviewAt(String value) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("Interview time is required.");
+        }
+        try {
+            return LocalDateTime.parse(value.trim()).toString();
+        } catch (DateTimeParseException exception) {
+            throw new IllegalArgumentException("Interview time must use the format yyyy-MM-ddTHH:mm.");
+        }
+    }
+
+    private String formatDateTime(String value) {
+        try {
+            return LocalDateTime.parse(value).toString().replace('T', ' ');
+        } catch (DateTimeParseException exception) {
+            return value;
+        }
+    }
+
+    private String normalize(String value) {
+        return value == null ? "" : value.trim().toLowerCase();
     }
 
     public record ApplicantReviewItem(
