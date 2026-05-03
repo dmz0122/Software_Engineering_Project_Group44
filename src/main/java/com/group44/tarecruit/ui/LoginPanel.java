@@ -1,6 +1,5 @@
 package com.group44.tarecruit.ui;
 
-import com.group44.tarecruit.model.UserAccount;
 import com.group44.tarecruit.ui.components.Theme;
 import com.group44.tarecruit.ui.components.UiFactory;
 
@@ -9,9 +8,10 @@ import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
+import javax.swing.JPasswordField;
+import javax.swing.JTextField;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-import javax.swing.JPasswordField;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.GridLayout;
@@ -19,11 +19,13 @@ import java.util.function.Consumer;
 
 public class LoginPanel extends JPanel {
     private final Consumer<LoginRequest> loginHandler;
+    private final Consumer<RegistrationRequest> registrationHandler;
     private final JComponent emailField;
     private final JPasswordField passwordField;
 
-    public LoginPanel(Consumer<LoginRequest> loginHandler) {
+    public LoginPanel(Consumer<LoginRequest> loginHandler, Consumer<RegistrationRequest> registrationHandler) {
         this.loginHandler = loginHandler;
+        this.registrationHandler = registrationHandler;
         this.emailField = UiFactory.textField();
         this.passwordField = new JPasswordField();
         passwordField.setFont(Theme.BODY_FONT);
@@ -38,15 +40,15 @@ public class LoginPanel extends JPanel {
     private JPanel buildHeroPanel() {
         JPanel hero = new JPanel();
         hero.setBackground(Theme.PRIMARY_DARK);
-        hero.setPreferredSize(new Dimension(420, 720));
+        hero.setPreferredSize(new Dimension(380, 720));
         hero.setLayout(new BoxLayout(hero, BoxLayout.Y_AXIS));
-        hero.setBorder(javax.swing.BorderFactory.createEmptyBorder(80, 48, 80, 48));
+        hero.setBorder(javax.swing.BorderFactory.createEmptyBorder(72, 42, 72, 42));
 
         JLabel brand = UiFactory.titleLabel("TA Recruit");
         brand.setForeground(Theme.SURFACE);
-        JLabel subtitle = UiFactory.sectionLabel("Sprint 2 Demo");
+        JLabel subtitle = UiFactory.sectionLabel("Career workspace");
         subtitle.setForeground(new java.awt.Color(220, 232, 255));
-        JLabel detail = UiFactory.bodyLabel("<html>Applicant applications, organiser vacancy publishing and admin workload monitoring now run locally with CSV persistence.</html>");
+        JLabel detail = UiFactory.bodyLabel("<html>Apply, review, generate resumes and manage your account in one polished desktop workspace.</html>");
         detail.setForeground(new java.awt.Color(220, 232, 255));
 
         hero.add(brand);
@@ -86,18 +88,18 @@ public class LoginPanel extends JPanel {
     private JPanel buildFormPanel() {
         JPanel wrapper = new JPanel(new BorderLayout());
         wrapper.setOpaque(false);
-        wrapper.setBorder(javax.swing.BorderFactory.createEmptyBorder(60, 60, 60, 80));
+        wrapper.setBorder(javax.swing.BorderFactory.createEmptyBorder(56, 52, 56, 72));
 
         JPanel card = UiFactory.card();
-        card.setPreferredSize(new Dimension(520, 520));
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
 
         JPanel content = new JPanel();
         content.setOpaque(false);
         content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
 
-        content.add(UiFactory.titleLabel("Login"));
+        content.add(UiFactory.titleLabel("Sign in"));
         content.add(Box.createVerticalStrut(10));
-        content.add(UiFactory.mutedLabel("Use a demo account or enter the seeded credentials manually."));
+        content.add(UiFactory.mutedLabel("Use a demo account, or create a new applicant account in a few seconds."));
         content.add(Box.createVerticalStrut(24));
         content.add(labeledField("Email", emailField));
         content.add(Box.createVerticalStrut(16));
@@ -117,6 +119,11 @@ public class LoginPanel extends JPanel {
         buttonRow.add(clearButton);
         content.add(buttonRow);
         content.add(Box.createVerticalStrut(24));
+
+        JButton registerButton = UiFactory.secondaryButton("Create Applicant Account");
+        registerButton.addActionListener(event -> showRegisterDialog());
+        content.add(registerButton);
+        content.add(Box.createVerticalStrut(16));
 
         JPanel quickLoginRow = new JPanel(new GridLayout(1, 3, 12, 0));
         quickLoginRow.setOpaque(false);
@@ -168,6 +175,37 @@ public class LoginPanel extends JPanel {
         JOptionPane.showMessageDialog(this, "Invalid email or password. Please try one of the seeded accounts.");
     }
 
+    private void showRegisterDialog() {
+        JTextField nameField = UiFactory.textField();
+        JTextField emailField = UiFactory.textField();
+        JPasswordField passwordField = new JPasswordField();
+        JPasswordField confirmField = new JPasswordField();
+        passwordField.setFont(Theme.BODY_FONT);
+        confirmField.setFont(Theme.BODY_FONT);
+
+        JPanel form = new JPanel(new GridLayout(0, 1, 0, 12));
+        form.setOpaque(false);
+        form.add(labeledField("Display name", nameField));
+        form.add(labeledField("Email", emailField));
+        form.add(labeledField("Password", passwordField));
+        form.add(labeledField("Confirm password", confirmField));
+
+        int result = JOptionPane.showConfirmDialog(this, form, "Create Applicant Account", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        if (result != JOptionPane.OK_OPTION) {
+            return;
+        }
+
+        registrationHandler.accept(new RegistrationRequest(
+                nameField.getText(),
+                emailField.getText(),
+                new String(passwordField.getPassword()),
+                new String(confirmField.getPassword())
+        ));
+    }
+
     public record LoginRequest(String email, String password) {
+    }
+
+    public record RegistrationRequest(String displayName, String email, String password, String confirmPassword) {
     }
 }

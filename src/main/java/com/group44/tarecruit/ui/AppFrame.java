@@ -22,6 +22,7 @@ import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import java.awt.CardLayout;
+import java.awt.GridLayout;
 import java.nio.file.Path;
 
 public class AppFrame extends JFrame {
@@ -72,15 +73,16 @@ public class AppFrame extends JFrame {
 
         setTitle("TA Recruit");
         setSize(1360, 860);
-        setMinimumSize(new java.awt.Dimension(1200, 760));
-        setLocationRelativeTo(null);
+        setMinimumSize(new java.awt.Dimension(1024, 700));
+        setResizable(true);
+        setLocationByPlatform(true);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
 
         cardLayout = new CardLayout();
         rootPanel = new JPanel(cardLayout);
         rootPanel.setBackground(Theme.APP_BACKGROUND);
 
-        loginPanel = new LoginPanel(this::attemptLogin);
+        loginPanel = new LoginPanel(this::attemptLogin, this::attemptRegistration);
         applicantWorkspacePanel = new ApplicantWorkspacePanel(
                 profileService,
                 jobService,
@@ -113,6 +115,20 @@ public class AppFrame extends JFrame {
                 .ifPresentOrElse(this::startSession, loginPanel::loginFailed);
     }
 
+    private void attemptRegistration(LoginPanel.RegistrationRequest request) {
+        try {
+            UserAccount user = authService.registerApplicant(
+                    request.displayName(),
+                    request.email(),
+                    request.password(),
+                    request.confirmPassword()
+            );
+            JOptionPane.showMessageDialog(this, "Account created successfully. You can now sign in with " + user.email() + ".");
+        } catch (IllegalArgumentException exception) {
+            JOptionPane.showMessageDialog(this, exception.getMessage());
+        }
+    }
+
     private void startSession(UserAccount user) {
         currentUser = user;
         if (user.role() == Role.APPLICANT) {
@@ -134,6 +150,52 @@ public class AppFrame extends JFrame {
         currentUser = null;
         showCard(LOGIN_CARD);
         JOptionPane.showMessageDialog(this, "You have been signed out.");
+    }
+
+    private void openAccountDialog() {
+        if (currentUser == null) {
+            JOptionPane.showMessageDialog(this, "Please sign in first.");
+            return;
+        }
+
+        javax.swing.JPasswordField currentPasswordField = new javax.swing.JPasswordField();
+        javax.swing.JPasswordField newPasswordField = new javax.swing.JPasswordField();
+        javax.swing.JPasswordField confirmPasswordField = new javax.swing.JPasswordField();
+        currentPasswordField.setFont(com.group44.tarecruit.ui.components.Theme.BODY_FONT);
+        newPasswordField.setFont(com.group44.tarecruit.ui.components.Theme.BODY_FONT);
+        confirmPasswordField.setFont(com.group44.tarecruit.ui.components.Theme.BODY_FONT);
+
+        JPanel form = new JPanel(new GridLayout(0, 1, 0, 12));
+        form.setOpaque(false);
+        form.add(labelledField("Current password", currentPasswordField));
+        form.add(labelledField("New password", newPasswordField));
+        form.add(labelledField("Confirm new password", confirmPasswordField));
+
+        int result = JOptionPane.showConfirmDialog(this, form, "Change Password", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        if (result != JOptionPane.OK_OPTION) {
+            return;
+        }
+
+        try {
+            UserAccount updated = authService.changePassword(
+                    currentUser.id(),
+                    new String(currentPasswordField.getPassword()),
+                    new String(newPasswordField.getPassword()),
+                    new String(confirmPasswordField.getPassword())
+            );
+            currentUser = updated;
+            JOptionPane.showMessageDialog(this, "Password updated successfully.");
+        } catch (IllegalArgumentException exception) {
+            JOptionPane.showMessageDialog(this, exception.getMessage());
+        }
+    }
+
+    private JPanel labelledField(String label, javax.swing.JComponent field) {
+        JPanel panel = new JPanel(new GridLayout(0, 1, 0, 6));
+        panel.setOpaque(false);
+        panel.add(com.group44.tarecruit.ui.components.UiFactory.bodyLabel(label));
+        panel.add(field);
+        return panel;
     }
 
     private void showCard(String card) {
