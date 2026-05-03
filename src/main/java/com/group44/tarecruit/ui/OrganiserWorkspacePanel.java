@@ -1,6 +1,7 @@
 package com.group44.tarecruit.ui;
 
 import com.group44.tarecruit.model.ApplicantProfile;
+import com.group44.tarecruit.model.ApplicationStatus;
 import com.group44.tarecruit.model.JobPosting;
 import com.group44.tarecruit.model.UserAccount;
 import com.group44.tarecruit.service.ApplicationService;
@@ -21,12 +22,16 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
+import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.GridLayout;
+import java.time.LocalDateTime;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -37,11 +42,13 @@ public class OrganiserWorkspacePanel extends JPanel {
     private final ApplicationService applicationService;
     private final JobService jobService;
     private final CvService cvService;
+    private final Runnable accountAction;
     private final Runnable logoutAction;
 
     private final CardLayout pageLayout;
     private final JPanel pagePanel;
     private final JComboBox<JobPosting> jobSelector;
+    private final JTextField applicantSearchField;
     private final JPanel applicantListPanel;
     private final JTextField roleField;
     private final JTextField hoursPerWeekField;
@@ -58,16 +65,19 @@ public class OrganiserWorkspacePanel extends JPanel {
     private final JTextArea previewDescriptionArea;
 
     private UserAccount currentUser;
+    private boolean suppressApplicantRefresh;
 
     public OrganiserWorkspacePanel(
             ApplicationService applicationService,
             JobService jobService,
             CvService cvService,
+            Runnable accountAction,
             Runnable logoutAction
     ) {
         this.applicationService = applicationService;
         this.jobService = jobService;
         this.cvService = cvService;
+        this.accountAction = accountAction;
         this.logoutAction = logoutAction;
 
         setLayout(new BorderLayout());
@@ -76,6 +86,7 @@ public class OrganiserWorkspacePanel extends JPanel {
 
         jobSelector = new JComboBox<>();
         jobSelector.setFont(Theme.BODY_FONT);
+        applicantSearchField = UiFactory.textField();
         applicantListPanel = new JPanel();
         applicantListPanel.setLayout(new BoxLayout(applicantListPanel, BoxLayout.Y_AXIS));
         applicantListPanel.setOpaque(false);
@@ -99,6 +110,23 @@ public class OrganiserWorkspacePanel extends JPanel {
         pagePanel.add(UiFactory.scrollPane(buildApplicantsPage()), APPLICANTS_PAGE);
         pagePanel.add(UiFactory.scrollPane(buildPostJobPage()), POST_JOB_PAGE);
         add(pagePanel, BorderLayout.CENTER);
+
+        applicantSearchField.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                refreshApplicantList();
+            }
+
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                refreshApplicantList();
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                refreshApplicantList();
+            }
+        });
     }
 
     public void setCurrentUser(UserAccount currentUser) {
@@ -106,6 +134,7 @@ public class OrganiserWorkspacePanel extends JPanel {
     }
 
     public void refreshAll() {
+        applicantSearchField.setText("");
         refreshJobSelector(null);
         refreshApplicantList();
         showPage(APPLICANTS_PAGE);
@@ -133,6 +162,10 @@ public class OrganiserWorkspacePanel extends JPanel {
         sidebar.add(postJobButton);
         sidebar.add(Box.createVerticalStrut(12));
         sidebar.add(applicantsButton);
+        sidebar.add(Box.createVerticalStrut(12));
+        JButton accountButton = UiFactory.navButton("Account");
+        accountButton.addActionListener(event -> accountAction.run());
+        sidebar.add(accountButton);
         sidebar.add(Box.createVerticalGlue());
 
         JButton logoutButton = UiFactory.lightButton("Sign out");
@@ -149,13 +182,27 @@ public class OrganiserWorkspacePanel extends JPanel {
         page.add(Box.createVerticalStrut(24));
 
         JPanel controls = UiFactory.card();
-        JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 14, 0));
+        JPanel row = new JPanel(new GridLayout(1, 3, 14, 0));
         row.setOpaque(false);
-        row.add(UiFactory.bodyLabel("Vacancy"));
-        jobSelector.addActionListener(event -> refreshApplicantList());
+        JPanel vacancyField = labeledField("Vacancy", jobSelector);
+        jobSelector.addActionListener(event -> {
+            if (!suppressApplicantRefresh) {
+                refreshApplicantList();
+            }
+        });
         jobSelector.setRenderer((list, value, index, isSelected, cellHasFocus) ->
                 new JLabel(value == null ? "" : value.title() + " — " + value.moduleCode()));
-        row.add(jobSelector);
+        row.add(vacancyField);
+        row.add(labeledField("Search applicants", applicantSearchField));
+        JPanel actionField = new JPanel();
+        actionField.setOpaque(false);
+        actionField.setLayout(new BoxLayout(actionField, BoxLayout.Y_AXIS));
+        actionField.add(UiFactory.bodyLabel("Actions"));
+        actionField.add(Box.createVerticalStrut(8));
+        JButton clearSearchButton = UiFactory.lightButton("Clear search");
+        clearSearchButton.addActionListener(event -> applicantSearchField.setText(""));
+        actionField.add(clearSearchButton);
+        row.add(actionField);
         controls.add(row, BorderLayout.CENTER);
         page.add(controls);
         page.add(Box.createVerticalStrut(16));
@@ -192,9 +239,11 @@ public class OrganiserWorkspacePanel extends JPanel {
         if (selectedJob == null) {
             applicantListPanel.add(UiFactory.mutedLabel("No vacancies are available."));
         } else {
-            List<ApplicationService.ApplicantReviewItem> items = applicationService.findApplicantsForJob(selectedJob.id());
+            List<ApplicationService.ApplicantReviewItem> items = applicationService.findApplicantsForJob(selectedJob.id(), applicantSearchField.getText());
             if (items.isEmpty()) {
-                applicantListPanel.add(UiFactory.mutedLabel("No applicants yet for this vacancy."));
+                applicantListPanel.add(UiFactory.mutedLabel(applicantSearchField.getText().isBlank()
+                        ? "No applicants yet for this vacancy."
+                        : "No applicants matched the current search."));
             } else {
                 for (int index = 0; index < items.size(); index++) {
                     applicantListPanel.add(applicantCard(selectedJob, items.get(index)));
@@ -210,15 +259,23 @@ public class OrganiserWorkspacePanel extends JPanel {
 
     private Component applicantCard(JobPosting job, ApplicationService.ApplicantReviewItem item) {
         JPanel card = UiFactory.card();
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 210));
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 280));
         JPanel content = new JPanel();
         content.setOpaque(false);
         content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
 
-        JLabel title = UiFactory.bodyLabel(item.applicant().displayName() + " — " + item.application().status().label());
+        JLabel title = UiFactory.bodyLabel(item.applicant().displayName());
         title.setFont(Theme.BUTTON_FONT);
         content.add(title);
         content.add(Box.createVerticalStrut(6));
+        JPanel metaRow = UiFactory.flowPanel(FlowLayout.LEFT, 10, 0);
+        metaRow.add(statusPill(item.application().status()));
+        metaRow.add(pillLabel(item.fitScore() + "% match", Theme.PRIMARY_DARK, Color.WHITE));
+        if (item.application().hasInterviewScheduled()) {
+            metaRow.add(pillLabel("Interview " + item.application().interviewAt().replace('T', ' '), Theme.ACCENT, Color.WHITE));
+        }
+        content.add(metaRow);
+        content.add(Box.createVerticalStrut(8));
 
         ApplicantProfile profile = item.profile();
         content.add(UiFactory.mutedLabel(profile.studentId().isBlank()
@@ -229,14 +286,13 @@ public class OrganiserWorkspacePanel extends JPanel {
         content.add(Box.createVerticalStrut(8));
         content.add(UiFactory.bodyLabel("Availability: " + (profile.availability().isBlank() ? "Not provided" : profile.availability())));
         content.add(Box.createVerticalStrut(8));
-        content.add(UiFactory.mutedLabel("Fit preview: " + item.fitScore() + "% match"));
         if (!item.application().note().isBlank()) {
             content.add(Box.createVerticalStrut(8));
             content.add(UiFactory.mutedLabel("Notes: " + item.application().note()));
         }
         content.add(Box.createVerticalStrut(16));
 
-        JPanel actions = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        JPanel actions = new JPanel(new GridLayout(2, 3, 10, 10));
         actions.setOpaque(false);
         JButton openCvButton = UiFactory.lightButton("Open CV");
         openCvButton.setEnabled(!profile.cvStoredPath().isBlank());
@@ -244,17 +300,55 @@ public class OrganiserWorkspacePanel extends JPanel {
         JButton downloadCvButton = UiFactory.lightButton("Download CV");
         downloadCvButton.setEnabled(!profile.cvStoredPath().isBlank());
         downloadCvButton.addActionListener(event -> downloadCv(profile.cvStoredPath(), profile.cvOriginalFileName()));
+        JButton shortlistButton = UiFactory.secondaryButton("Shortlist");
+        shortlistButton.setEnabled(item.application().status() != ApplicationStatus.SHORTLISTED
+                && item.application().status() != ApplicationStatus.SELECTED
+                && item.application().status() != ApplicationStatus.REJECTED);
+        shortlistButton.addActionListener(event -> shortlistApplicant(job, item.application().id()));
+        JButton interviewButton = UiFactory.secondaryButton("Schedule Interview");
+        interviewButton.setEnabled(item.application().status() != ApplicationStatus.SELECTED
+                && item.application().status() != ApplicationStatus.REJECTED);
+        interviewButton.addActionListener(event -> scheduleInterview(job, item.application().id()));
         JButton selectButton = UiFactory.primaryButton("Select");
-        selectButton.setEnabled(!"Selected".equalsIgnoreCase(item.application().status().label()));
+        selectButton.setEnabled(item.application().status() != ApplicationStatus.SELECTED
+                && item.application().status() != ApplicationStatus.REJECTED);
         selectButton.addActionListener(event -> selectApplicant(job, item.application().id()));
+        JButton rejectButton = UiFactory.lightButton("Reject");
+        rejectButton.setEnabled(item.application().status() != ApplicationStatus.REJECTED
+                && item.application().status() != ApplicationStatus.SELECTED);
+        rejectButton.addActionListener(event -> rejectApplicant(job, item.application().id()));
 
         actions.add(openCvButton);
         actions.add(downloadCvButton);
+        actions.add(shortlistButton);
+        actions.add(interviewButton);
         actions.add(selectButton);
+        actions.add(rejectButton);
         content.add(actions);
 
         card.add(content, BorderLayout.CENTER);
         return card;
+    }
+
+    private JLabel statusPill(ApplicationStatus status) {
+        return switch (status) {
+            case APPLIED -> pillLabel(status.label(), new Color(210, 226, 247), Theme.PRIMARY_DARK);
+            case UNDER_REVIEW -> pillLabel(status.label(), new Color(230, 236, 249), Theme.PRIMARY_DARK);
+            case SHORTLISTED -> pillLabel(status.label(), new Color(235, 246, 214), new Color(67, 109, 21));
+            case INTERVIEW_SCHEDULED -> pillLabel(status.label(), new Color(252, 238, 191), new Color(130, 79, 13));
+            case SELECTED -> pillLabel(status.label(), new Color(208, 244, 220), new Color(29, 102, 68));
+            case REJECTED -> pillLabel(status.label(), new Color(249, 217, 217), new Color(138, 42, 42));
+            case WITHDRAWN -> pillLabel(status.label(), new Color(229, 231, 235), Theme.SUBTLE_TEXT);
+        };
+    }
+
+    private JLabel pillLabel(String text, Color background, Color foreground) {
+        JLabel label = UiFactory.bodyLabel("  " + text + "  ");
+        label.setOpaque(true);
+        label.setBackground(background);
+        label.setForeground(foreground);
+        label.setBorder(BorderFactory.createEmptyBorder(6, 8, 6, 8));
+        return label;
     }
 
     private JPanel buildPostJobFormCard() {
@@ -464,6 +558,7 @@ public class OrganiserWorkspacePanel extends JPanel {
     }
 
     private void refreshJobSelector(String selectedJobId) {
+        suppressApplicantRefresh = true;
         jobSelector.removeAllItems();
         for (JobPosting job : jobService.getAllJobs()) {
             jobSelector.addItem(job);
@@ -473,6 +568,7 @@ public class OrganiserWorkspacePanel extends JPanel {
                 JobPosting job = jobSelector.getItemAt(index);
                 if (job.id().equals(selectedJobId)) {
                     jobSelector.setSelectedIndex(index);
+                    suppressApplicantRefresh = false;
                     return;
                 }
             }
@@ -480,6 +576,7 @@ public class OrganiserWorkspacePanel extends JPanel {
         if (jobSelector.getItemCount() > 0) {
             jobSelector.setSelectedIndex(0);
         }
+        suppressApplicantRefresh = false;
     }
 
     private void openCv(String storedPath) {
@@ -513,6 +610,86 @@ public class OrganiserWorkspacePanel extends JPanel {
         } catch (RuntimeException exception) {
             JOptionPane.showMessageDialog(this, exception.getMessage());
         }
+    }
+
+    private void shortlistApplicant(JobPosting job, String applicationId) {
+        String note = promptForNote(
+                "Shortlist Applicant",
+                "Optional shortlist note for the applicant:",
+                "Shortlisted for final review."
+        );
+        if (note == null) {
+            return;
+        }
+        try {
+            applicationService.shortlistApplicant(applicationId, note);
+            refreshApplicantList();
+            JOptionPane.showMessageDialog(this, "Applicant shortlisted for " + job.title() + ".");
+        } catch (RuntimeException exception) {
+            JOptionPane.showMessageDialog(this, exception.getMessage());
+        }
+    }
+
+    private void rejectApplicant(JobPosting job, String applicationId) {
+        String note = promptForNote(
+                "Reject Applicant",
+                "Optional rejection feedback for the applicant:",
+                "Thank you for applying. This application was not selected."
+        );
+        if (note == null) {
+            return;
+        }
+        try {
+            applicationService.rejectApplicant(applicationId, note);
+            refreshApplicantList();
+            JOptionPane.showMessageDialog(this, "Applicant rejected for " + job.title() + ".");
+        } catch (RuntimeException exception) {
+            JOptionPane.showMessageDialog(this, exception.getMessage());
+        }
+    }
+
+    private void scheduleInterview(JobPosting job, String applicationId) {
+        JTextField dateTimeField = UiFactory.textField();
+        dateTimeField.setText(LocalDateTime.now().plusDays(1).withMinute(0).withSecond(0).withNano(0).toString());
+        JTextArea noteArea = UiFactory.textArea(3);
+        noteArea.setText("Interview scheduled. Please arrive 10 minutes early.");
+
+        JPanel form = new JPanel(new GridLayout(0, 1, 0, 10));
+        form.setOpaque(false);
+        form.add(labeledField("Interview time (yyyy-MM-ddTHH:mm)", dateTimeField));
+        form.add(scrollField("Applicant note", noteArea));
+
+        int result = JOptionPane.showConfirmDialog(
+                this,
+                form,
+                "Schedule Interview",
+                JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.PLAIN_MESSAGE
+        );
+        if (result != JOptionPane.OK_OPTION) {
+            return;
+        }
+
+        try {
+            applicationService.scheduleInterview(applicationId, dateTimeField.getText(), noteArea.getText());
+            refreshApplicantList();
+            JOptionPane.showMessageDialog(this, "Interview scheduled for " + job.title() + ".");
+        } catch (RuntimeException exception) {
+            JOptionPane.showMessageDialog(this, exception.getMessage());
+        }
+    }
+
+    private String promptForNote(String title, String label, String defaultText) {
+        JTextArea noteArea = UiFactory.textArea(4);
+        noteArea.setText(defaultText);
+        int result = JOptionPane.showConfirmDialog(
+                this,
+                scrollField(label, noteArea),
+                title,
+                JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.PLAIN_MESSAGE
+        );
+        return result == JOptionPane.OK_OPTION ? noteArea.getText() : null;
     }
 
     private void showPage(String page) {

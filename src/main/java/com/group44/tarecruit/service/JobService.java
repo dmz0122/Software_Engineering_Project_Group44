@@ -22,6 +22,37 @@ public class JobService {
                 .toList();
     }
 
+    public List<JobPosting> filterJobs(String searchQuery, String tagFilter, String semesterFilter) {
+        String normalizedQuery = normalize(searchQuery);
+        String normalizedTag = normalize(tagFilter);
+        String normalizedSemester = normalize(semesterFilter);
+
+        return getAllJobs().stream()
+                .filter(job -> matchesQuery(job, normalizedQuery))
+                .filter(job -> matchesTag(job, normalizedTag))
+                .filter(job -> matchesSemester(job, normalizedSemester))
+                .toList();
+    }
+
+    public List<String> availableTags() {
+        return getAllJobs().stream()
+                .flatMap(job -> List.of(job.tags().split("\\|")).stream())
+                .map(String::trim)
+                .filter(tag -> !tag.isBlank())
+                .distinct()
+                .sorted(String::compareToIgnoreCase)
+                .toList();
+    }
+
+    public List<String> availableSemesters() {
+        return getAllJobs().stream()
+                .map(JobPosting::semester)
+                .filter(semester -> !semester.isBlank())
+                .distinct()
+                .sorted(String::compareToIgnoreCase)
+                .toList();
+    }
+
     public Optional<JobPosting> findById(String jobId) {
         return jobRepository.findById(jobId);
     }
@@ -107,5 +138,42 @@ public class JobService {
                 .limit(2)
                 .toList();
         return String.join("|", generatedTags);
+    }
+
+    private boolean matchesQuery(JobPosting job, String normalizedQuery) {
+        if (normalizedQuery.isBlank()) {
+            return true;
+        }
+        String searchable = String.join(" ",
+                job.title(),
+                job.moduleCode(),
+                job.moduleName(),
+                job.semester(),
+                job.requiredSkills(),
+                job.tags(),
+                job.description()
+        ).toLowerCase();
+        return searchable.contains(normalizedQuery);
+    }
+
+    private boolean matchesTag(JobPosting job, String normalizedTag) {
+        if (normalizedTag.isBlank() || "all tags".equals(normalizedTag)) {
+            return true;
+        }
+        return List.of(job.tags().split("\\|")).stream()
+                .map(String::trim)
+                .filter(tag -> !tag.isBlank())
+                .map(String::toLowerCase)
+                .anyMatch(normalizedTag::equals);
+    }
+
+    private boolean matchesSemester(JobPosting job, String normalizedSemester) {
+        return normalizedSemester.isBlank()
+                || "all semesters".equals(normalizedSemester)
+                || job.semester().equalsIgnoreCase(normalizedSemester);
+    }
+
+    private String normalize(String value) {
+        return value == null ? "" : value.trim().toLowerCase();
     }
 }

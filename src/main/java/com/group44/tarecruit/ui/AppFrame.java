@@ -89,16 +89,19 @@ public class AppFrame extends JFrame {
                 applicationService,
                 notificationService,
                 cvService,
+                this::openAccountDialog,
                 this::logout
         );
         organiserWorkspacePanel = new OrganiserWorkspacePanel(
                 applicationService,
                 jobService,
                 cvService,
+                this::openAccountDialog,
                 this::logout
         );
         adminWorkspacePanel = new AdminWorkspacePanel(
                 workloadService,
+                this::openAccountDialog,
                 this::logout
         );
 

@@ -9,9 +9,14 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
+import javax.swing.text.AbstractDocument;
+import javax.swing.text.AttributeSet;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.DocumentFilter;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 
@@ -52,7 +57,7 @@ public final class UiFactory {
     }
 
     public static JButton secondaryButton(String text) {
-        return button(text, Theme.PRIMARY_DARK, Color.WHITE);
+        return button(text, Theme.ACCENT, Color.WHITE);
     }
 
     public static JButton lightButton(String text) {
@@ -73,6 +78,7 @@ public final class UiFactory {
         button.setBackground(background);
         button.setForeground(foreground);
         button.setBorder(BorderFactory.createEmptyBorder(12, 18, 12, 18));
+        button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         button.setOpaque(true);
         return button;
     }
@@ -84,6 +90,30 @@ public final class UiFactory {
                 BorderFactory.createLineBorder(Theme.BORDER, 1, true),
                 BorderFactory.createEmptyBorder(10, 12, 10, 12)
         ));
+        return field;
+    }
+
+    public static JTextField numericTextField(int maxLength) {
+        JTextField field = textField();
+        ((AbstractDocument) field.getDocument()).setDocumentFilter(new DocumentFilter() {
+            @Override
+            public void insertString(FilterBypass fb, int offset, String string, AttributeSet attr) throws BadLocationException {
+                replace(fb, offset, 0, string, attr);
+            }
+
+            @Override
+            public void replace(FilterBypass fb, int offset, int length, String text, AttributeSet attrs) throws BadLocationException {
+                if (text == null) {
+                    return;
+                }
+                String candidate = new StringBuilder(fb.getDocument().getText(0, fb.getDocument().getLength()))
+                        .replace(offset, offset + length, text)
+                        .toString();
+                if (candidate.length() <= maxLength && candidate.matches("\\d*")) {
+                    super.replace(fb, offset, length, text, attrs);
+                }
+            }
+        });
         return field;
     }
 
