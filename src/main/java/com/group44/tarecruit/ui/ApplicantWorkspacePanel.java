@@ -615,6 +615,8 @@ public class ApplicantWorkspacePanel extends JPanel {
                     gpaField.getText(),
                     currentCvOriginalFileName,
                     currentCvStoredPath,
+                    "",
+                    "",
                     ""
             ));
             currentCvOriginalFileName = savedProfile.cvOriginalFileName();
