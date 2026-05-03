@@ -29,6 +29,8 @@ class ProfileServiceTest {
                 "3.6",
                 "",
                 "",
+                "",
+                "",
                 ""
         ));
 
@@ -49,6 +51,8 @@ class ProfileServiceTest {
                 "Java, teamwork",
                 "Mon / Fri",
                 "3.6",
+                "",
+                "",
                 "",
                 "",
                 ""

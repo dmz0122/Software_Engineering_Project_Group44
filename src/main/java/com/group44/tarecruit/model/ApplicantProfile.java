@@ -11,6 +11,8 @@ public record ApplicantProfile(
         String gpa,
         String cvOriginalFileName,
         String cvStoredPath,
+        String avatarOriginalFileName,
+        String avatarStoredPath,
         String updatedAt
 ) {
     public boolean isComplete() {
