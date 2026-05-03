@@ -90,6 +90,7 @@ public class OrganiserWorkspacePanel extends JPanel {
         applicantListPanel = new JPanel();
         applicantListPanel.setLayout(new BoxLayout(applicantListPanel, BoxLayout.Y_AXIS));
         applicantListPanel.setOpaque(false);
+
         roleField = UiFactory.textField();
         hoursPerWeekField = UiFactory.textField();
         moduleCodeField = UiFactory.textField();
@@ -257,6 +258,71 @@ public class OrganiserWorkspacePanel extends JPanel {
         applicantListPanel.repaint();
     }
 
+    private JPanel buildPostJobFormCard() {
+        JPanel card = UiFactory.card();
+
+        JPanel content = new JPanel();
+        content.setOpaque(false);
+        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+
+        JPanel fieldsGrid = new JPanel(new GridLayout(0, 2, 18, 16));
+        fieldsGrid.setOpaque(false);
+        fieldsGrid.add(labeledField("Role", roleField));
+        fieldsGrid.add(labeledField("Hours/week", hoursPerWeekField));
+        fieldsGrid.add(labeledField("Module code", moduleCodeField));
+        fieldsGrid.add(labeledField("Module/activity", moduleNameField));
+        fieldsGrid.add(labeledField("Semester", semesterField));
+        fieldsGrid.add(labeledField("Openings", openingsField));
+        fieldsGrid.add(labeledField("Tags", tagsField));
+        fieldsGrid.add(scrollField("Required skills", requiredSkillsArea));
+
+        content.add(fieldsGrid);
+        content.add(Box.createVerticalStrut(16));
+        content.add(scrollField("Description", descriptionArea));
+        content.add(Box.createVerticalStrut(18));
+
+        JPanel actions = new JPanel(new GridLayout(1, 3, 12, 0));
+        actions.setOpaque(false);
+        JButton publishButton = UiFactory.primaryButton("Publish Job");
+        publishButton.addActionListener(event -> publishJob());
+        JButton previewButton = UiFactory.secondaryButton("Preview");
+        previewButton.addActionListener(event -> updatePreviewFromForm());
+        JButton clearButton = UiFactory.lightButton("Clear");
+        clearButton.addActionListener(event -> {
+            clearPostJobForm();
+            updatePreviewFromForm();
+        });
+        actions.add(publishButton);
+        actions.add(previewButton);
+        actions.add(clearButton);
+        content.add(actions);
+
+        card.add(content, BorderLayout.CENTER);
+        return card;
+    }
+
+    private JPanel buildPostJobPreviewCard() {
+        JPanel card = UiFactory.card();
+        JPanel content = new JPanel();
+        content.setOpaque(false);
+        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+
+        content.add(previewTitleLabel);
+        content.add(Box.createVerticalStrut(8));
+        content.add(previewSummaryLabel);
+        content.add(Box.createVerticalStrut(16));
+        content.add(UiFactory.bodyLabel("Required skills"));
+        content.add(Box.createVerticalStrut(8));
+        content.add(new JScrollPane(previewRequirementsArea));
+        content.add(Box.createVerticalStrut(14));
+        content.add(UiFactory.bodyLabel("Description"));
+        content.add(Box.createVerticalStrut(8));
+        content.add(new JScrollPane(previewDescriptionArea));
+
+        card.add(content, BorderLayout.CENTER);
+        return card;
+    }
+
     private Component applicantCard(JobPosting job, ApplicationService.ApplicantReviewItem item) {
         JPanel card = UiFactory.card();
         card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 280));
@@ -349,71 +415,6 @@ public class OrganiserWorkspacePanel extends JPanel {
         label.setForeground(foreground);
         label.setBorder(BorderFactory.createEmptyBorder(6, 8, 6, 8));
         return label;
-    }
-
-    private JPanel buildPostJobFormCard() {
-        JPanel card = UiFactory.card();
-
-        JPanel content = new JPanel();
-        content.setOpaque(false);
-        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
-
-        JPanel fieldsGrid = new JPanel(new GridLayout(0, 2, 18, 16));
-        fieldsGrid.setOpaque(false);
-        fieldsGrid.add(labeledField("Role", roleField));
-        fieldsGrid.add(labeledField("Hours/week", hoursPerWeekField));
-        fieldsGrid.add(labeledField("Module code", moduleCodeField));
-        fieldsGrid.add(labeledField("Module/activity", moduleNameField));
-        fieldsGrid.add(labeledField("Semester", semesterField));
-        fieldsGrid.add(labeledField("Openings", openingsField));
-        fieldsGrid.add(labeledField("Tags", tagsField));
-        fieldsGrid.add(scrollField("Required skills", requiredSkillsArea));
-
-        content.add(fieldsGrid);
-        content.add(Box.createVerticalStrut(16));
-        content.add(scrollField("Description", descriptionArea));
-        content.add(Box.createVerticalStrut(18));
-
-        JPanel actions = new JPanel(new GridLayout(1, 3, 12, 0));
-        actions.setOpaque(false);
-        JButton publishButton = UiFactory.primaryButton("Publish Job");
-        publishButton.addActionListener(event -> publishJob());
-        JButton previewButton = UiFactory.secondaryButton("Preview");
-        previewButton.addActionListener(event -> updatePreviewFromForm());
-        JButton clearButton = UiFactory.lightButton("Clear");
-        clearButton.addActionListener(event -> {
-            clearPostJobForm();
-            updatePreviewFromForm();
-        });
-        actions.add(publishButton);
-        actions.add(previewButton);
-        actions.add(clearButton);
-        content.add(actions);
-
-        card.add(content, BorderLayout.CENTER);
-        return card;
-    }
-
-    private JPanel buildPostJobPreviewCard() {
-        JPanel card = UiFactory.card();
-        JPanel content = new JPanel();
-        content.setOpaque(false);
-        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
-
-        content.add(previewTitleLabel);
-        content.add(Box.createVerticalStrut(8));
-        content.add(previewSummaryLabel);
-        content.add(Box.createVerticalStrut(16));
-        content.add(UiFactory.bodyLabel("Required skills"));
-        content.add(Box.createVerticalStrut(8));
-        content.add(new JScrollPane(previewRequirementsArea));
-        content.add(Box.createVerticalStrut(14));
-        content.add(UiFactory.bodyLabel("Description"));
-        content.add(Box.createVerticalStrut(8));
-        content.add(new JScrollPane(previewDescriptionArea));
-
-        card.add(content, BorderLayout.CENTER);
-        return card;
     }
 
     private JPanel labeledField(String labelText, Component component) {
