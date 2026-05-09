@@ -10,9 +10,15 @@ import java.util.UUID;
 
 public class NotificationService {
     private final NotificationRepository notificationRepository;
+    private final ActivityLogService activityLogService;
 
     public NotificationService(NotificationRepository notificationRepository) {
+        this(notificationRepository, null);
+    }
+
+    public NotificationService(NotificationRepository notificationRepository, ActivityLogService activityLogService) {
         this.notificationRepository = notificationRepository;
+        this.activityLogService = activityLogService;
     }
 
     public List<NotificationItem> getNotificationsForUser(String userId) {
@@ -23,12 +29,16 @@ public class NotificationService {
     }
 
     public void notifyUser(String userId, String title, String message) {
-        notificationRepository.append(new NotificationItem(
+        NotificationItem notificationItem = new NotificationItem(
                 UUID.randomUUID().toString(),
                 userId,
                 title,
                 message,
                 LocalDateTime.now().toString()
-        ));
+        );
+        notificationRepository.append(notificationItem);
+        if (activityLogService != null) {
+            activityLogService.log("Notification", "", userId, title, message);
+        }
     }
 }
