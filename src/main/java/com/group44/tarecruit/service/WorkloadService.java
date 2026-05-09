@@ -15,6 +15,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public class WorkloadService {
     public static final String CURRENT_SEMESTER_FILTER = "Current semester";
@@ -45,6 +46,15 @@ public class WorkloadService {
         this.clock = clock;
     }
 
+    public List<String> availableSemesters() {
+        return jobRepository.findAll().stream()
+                .map(JobPosting::semester)
+                .filter(semester -> !semester.isBlank())
+                .distinct()
+                .sorted()
+                .toList();
+    }
+
     public String resolveSemester(String filter) {
         if (filter == null || filter.isBlank() || CURRENT_SEMESTER_FILTER.equalsIgnoreCase(filter)) {
             return inferCurrentSemester(availableSemesters());
@@ -53,15 +63,6 @@ public class WorkloadService {
             return "";
         }
         return filter.trim();
-    }
-
-    public List<String> availableSemesters() {
-        return jobRepository.findAll().stream()
-                .map(JobPosting::semester)
-                .filter(semester -> !semester.isBlank())
-                .distinct()
-                .sorted()
-                .toList();
     }
 
     public List<WorkloadSummary> getWorkload(String filter) {

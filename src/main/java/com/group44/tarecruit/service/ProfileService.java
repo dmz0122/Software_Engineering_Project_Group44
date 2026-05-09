@@ -8,9 +8,15 @@ import java.util.Optional;
 
 public class ProfileService {
     private final ProfileRepository profileRepository;
+    private final ActivityLogService activityLogService;
 
     public ProfileService(ProfileRepository profileRepository) {
+        this(profileRepository, null);
+    }
+
+    public ProfileService(ProfileRepository profileRepository, ActivityLogService activityLogService) {
         this.profileRepository = profileRepository;
+        this.activityLogService = activityLogService;
     }
 
     public Optional<ApplicantProfile> findProfile(String applicantId) {
@@ -35,6 +41,7 @@ public class ProfileService {
                 LocalDateTime.now().toString()
         );
         profileRepository.upsert(savedProfile);
+        logProfileChange(savedProfile.applicantId(), "Profile saved", "Applicant profile details were created or updated.");
         return savedProfile;
     }
 
@@ -72,6 +79,7 @@ public class ProfileService {
                 LocalDateTime.now().toString()
         );
         profileRepository.upsert(savedProfile);
+        logProfileChange(applicantId, "CV reference updated", "Applicant CV file reference was updated.");
         return savedProfile;
     }
 
@@ -109,6 +117,7 @@ public class ProfileService {
                 LocalDateTime.now().toString()
         );
         profileRepository.upsert(savedProfile);
+        logProfileChange(applicantId, "Avatar updated", "Applicant profile photo reference was updated.");
         return savedProfile;
     }
 
@@ -135,6 +144,12 @@ public class ProfileService {
             }
         } catch (NumberFormatException exception) {
             throw new IllegalArgumentException("GPA must be a numeric value, for example 3.7.");
+        }
+    }
+
+    private void logProfileChange(String applicantId, String title, String message) {
+        if (activityLogService != null) {
+            activityLogService.log("Profile", applicantId, applicantId, title, message);
         }
     }
 }

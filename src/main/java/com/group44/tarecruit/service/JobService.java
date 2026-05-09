@@ -11,9 +11,15 @@ import java.util.UUID;
 
 public class JobService {
     private final JobRepository jobRepository;
+    private final ActivityLogService activityLogService;
 
     public JobService(JobRepository jobRepository) {
+        this(jobRepository, null);
+    }
+
+    public JobService(JobRepository jobRepository, ActivityLogService activityLogService) {
         this.jobRepository = jobRepository;
+        this.activityLogService = activityLogService;
     }
 
     public List<JobPosting> getAllJobs() {
@@ -78,6 +84,15 @@ public class JobService {
         List<JobPosting> jobs = new ArrayList<>(jobRepository.findAll());
         jobs.add(savedJob);
         jobRepository.saveAll(jobs);
+        if (activityLogService != null) {
+            activityLogService.log(
+                    "Job",
+                    "",
+                    "",
+                    "Job posted",
+                    savedJob.title() + " (" + savedJob.moduleCode() + ") was published for " + savedJob.semester() + "."
+            );
+        }
         return savedJob;
     }
 
