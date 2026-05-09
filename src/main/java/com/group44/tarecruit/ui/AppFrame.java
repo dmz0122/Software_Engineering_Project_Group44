@@ -1,6 +1,7 @@
 package com.group44.tarecruit.ui;
 
 import com.group44.tarecruit.data.AppPaths;
+import com.group44.tarecruit.data.ActivityLogRepository;
 import com.group44.tarecruit.data.ApplicationRepository;
 import com.group44.tarecruit.data.JobRepository;
 import com.group44.tarecruit.data.NotificationRepository;
@@ -10,10 +11,17 @@ import com.group44.tarecruit.data.UserRepository;
 import com.group44.tarecruit.model.Role;
 import com.group44.tarecruit.model.UserAccount;
 import com.group44.tarecruit.service.ApplicationService;
+import com.group44.tarecruit.service.ActivityLogService;
+import com.group44.tarecruit.service.AiConfiguration;
+import com.group44.tarecruit.service.AiConfigurationLoader;
+import com.group44.tarecruit.service.AnalyticsService;
 import com.group44.tarecruit.service.AuthService;
 import com.group44.tarecruit.service.CvService;
+import com.group44.tarecruit.service.DisabledLlmJsonService;
 import com.group44.tarecruit.service.JobService;
+import com.group44.tarecruit.service.LlmJsonService;
 import com.group44.tarecruit.service.NotificationService;
+import com.group44.tarecruit.service.OpenAiCompatibleLlmJsonService;
 import com.group44.tarecruit.service.ProfileService;
 import com.group44.tarecruit.service.WorkloadService;
 import com.group44.tarecruit.ui.components.Theme;
@@ -38,6 +46,7 @@ public class AppFrame extends JFrame {
     private final NotificationService notificationService;
     private final CvService cvService;
     private final WorkloadService workloadService;
+    private final AnalyticsService analyticsService;
     private final JPanel rootPanel;
     private final CardLayout cardLayout;
     private final LoginPanel loginPanel;
@@ -56,11 +65,17 @@ public class AppFrame extends JFrame {
         JobRepository jobRepository = new JobRepository(dataDirectory.resolve("jobs.csv"));
         ApplicationRepository applicationRepository = new ApplicationRepository(dataDirectory.resolve("applications.csv"));
         NotificationRepository notificationRepository = new NotificationRepository(dataDirectory.resolve("notifications.csv"));
+        ActivityLogRepository activityLogRepository = new ActivityLogRepository(dataDirectory.resolve("activity_logs.csv"));
 
-        notificationService = new NotificationService(notificationRepository);
+        ActivityLogService activityLogService = new ActivityLogService(activityLogRepository);
+        AiConfiguration aiConfiguration = AiConfigurationLoader.load();
+        LlmJsonService llmJsonService = aiConfiguration.isUsable()
+                ? new OpenAiCompatibleLlmJsonService(aiConfiguration)
+                : new DisabledLlmJsonService();
+        notificationService = new NotificationService(notificationRepository, activityLogService);
         authService = new AuthService(userRepository);
-        profileService = new ProfileService(profileRepository);
-        jobService = new JobService(jobRepository);
+        profileService = new ProfileService(profileRepository, activityLogService);
+        jobService = new JobService(jobRepository, activityLogService);
         applicationService = new ApplicationService(
                 applicationRepository,
                 jobRepository,
@@ -70,6 +85,15 @@ public class AppFrame extends JFrame {
         );
         cvService = new CvService(dataDirectory.resolve("uploads"));
         workloadService = new WorkloadService(applicationRepository, jobRepository, userRepository);
+        analyticsService = new AnalyticsService(
+                applicationRepository,
+                jobRepository,
+                profileRepository,
+                userRepository,
+                workloadService,
+                activityLogService,
+                llmJsonService
+        );
 
         setTitle("TA Recruit");
         setSize(1360, 860);
@@ -88,6 +112,7 @@ public class AppFrame extends JFrame {
                 jobService,
                 applicationService,
                 notificationService,
+                analyticsService,
                 cvService,
                 this::openAccountDialog,
                 this::logout
@@ -101,6 +126,7 @@ public class AppFrame extends JFrame {
         );
         adminWorkspacePanel = new AdminWorkspacePanel(
                 workloadService,
+                analyticsService,
                 this::openAccountDialog,
                 this::logout
         );
