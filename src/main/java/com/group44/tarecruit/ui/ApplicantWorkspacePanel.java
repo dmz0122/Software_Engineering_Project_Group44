@@ -7,10 +7,12 @@ import com.group44.tarecruit.model.JobPosting;
 import com.group44.tarecruit.model.NotificationItem;
 import com.group44.tarecruit.model.UserAccount;
 import com.group44.tarecruit.service.ApplicationService;
+import com.group44.tarecruit.service.AnalyticsService;
 import com.group44.tarecruit.service.CvService;
 import com.group44.tarecruit.service.JobService;
 import com.group44.tarecruit.service.NotificationService;
 import com.group44.tarecruit.service.ProfileService;
+import com.group44.tarecruit.service.WorkloadService;
 import com.group44.tarecruit.ui.components.Theme;
 import com.group44.tarecruit.ui.components.UiFactory;
 
@@ -47,6 +49,7 @@ public class ApplicantWorkspacePanel extends JPanel {
     private static final String PROFILE_PAGE = "profile";
     private static final String JOBS_PAGE = "jobs";
     private static final String APPLICATIONS_PAGE = "applications";
+    private static final String INSIGHTS_PAGE = "insights";
     private static final String ALL_TAGS = "All tags";
     private static final String ALL_SEMESTERS = "All semesters";
     private static final String ALL_STATUSES = "All statuses";
@@ -55,6 +58,7 @@ public class ApplicantWorkspacePanel extends JPanel {
     private final JobService jobService;
     private final ApplicationService applicationService;
     private final NotificationService notificationService;
+    private final AnalyticsService analyticsService;
     private final CvService cvService;
     private final Runnable accountAction;
     private final Runnable logoutAction;
@@ -63,6 +67,7 @@ public class ApplicantWorkspacePanel extends JPanel {
     private final JPanel pagePanel;
     private final JPanel dashboardNotifications;
     private final JPanel dashboardJobs;
+    private final JPanel dashboardInsights;
     private final JLabel dashboardGreeting;
     private final JLabel dashboardProfileStatus;
     private final JTextField fullNameField;
@@ -83,12 +88,15 @@ public class ApplicantWorkspacePanel extends JPanel {
     private final JLabel detailTitleLabel;
     private final JLabel detailSummaryLabel;
     private final JLabel detailApplicationStatusLabel;
+    private final JLabel detailSkillInsightLabel;
     private final JTextArea detailRequirementsArea;
     private final JTextArea detailDescriptionArea;
     private final JButton applyButton;
     private final JComboBox<String> applicationSemesterFilterBox;
     private final JPanel applicationStatusFilterPanel;
     private final JPanel applicationsListPanel;
+    private final JComboBox<String> skillInsightSemesterFilterBox;
+    private final JPanel skillInsightsListPanel;
 
     private UserAccount currentUser;
     private JobPosting selectedJob;
@@ -104,6 +112,7 @@ public class ApplicantWorkspacePanel extends JPanel {
             JobService jobService,
             ApplicationService applicationService,
             NotificationService notificationService,
+            AnalyticsService analyticsService,
             CvService cvService,
             Runnable accountAction,
             Runnable logoutAction
@@ -112,6 +121,7 @@ public class ApplicantWorkspacePanel extends JPanel {
         this.jobService = jobService;
         this.applicationService = applicationService;
         this.notificationService = notificationService;
+        this.analyticsService = analyticsService;
         this.cvService = cvService;
         this.accountAction = accountAction;
         this.logoutAction = logoutAction;
@@ -133,6 +143,9 @@ public class ApplicantWorkspacePanel extends JPanel {
         dashboardJobs = new JPanel();
         dashboardJobs.setLayout(new BoxLayout(dashboardJobs, BoxLayout.Y_AXIS));
         dashboardJobs.setOpaque(false);
+        dashboardInsights = new JPanel();
+        dashboardInsights.setLayout(new BoxLayout(dashboardInsights, BoxLayout.Y_AXIS));
+        dashboardInsights.setOpaque(false);
 
         fullNameField = UiFactory.textField();
         studentIdField = UiFactory.numericTextField(12);
@@ -158,6 +171,7 @@ public class ApplicantWorkspacePanel extends JPanel {
         detailTitleLabel = UiFactory.sectionLabel("Job Detail");
         detailSummaryLabel = UiFactory.mutedLabel("Select a role to review its details.");
         detailApplicationStatusLabel = UiFactory.mutedLabel("Apply to see this role appear in your application tracker.");
+        detailSkillInsightLabel = UiFactory.mutedLabel("Match analysis appears here after a role is selected.");
         detailRequirementsArea = readOnlyArea();
         detailDescriptionArea = readOnlyArea();
         applyButton = UiFactory.primaryButton("Apply now");
@@ -169,6 +183,11 @@ public class ApplicantWorkspacePanel extends JPanel {
         applicationsListPanel = new JPanel();
         applicationsListPanel.setOpaque(false);
         applicationsListPanel.setLayout(new BoxLayout(applicationsListPanel, BoxLayout.Y_AXIS));
+        skillInsightSemesterFilterBox = new JComboBox<>();
+        skillInsightSemesterFilterBox.setFont(Theme.BODY_FONT);
+        skillInsightsListPanel = new JPanel();
+        skillInsightsListPanel.setOpaque(false);
+        skillInsightsListPanel.setLayout(new BoxLayout(skillInsightsListPanel, BoxLayout.Y_AXIS));
 
         attachRefreshOnChange(jobSearchField, this::refreshJobs);
         jobTagFilterBox.addActionListener(event -> {
@@ -186,11 +205,17 @@ public class ApplicantWorkspacePanel extends JPanel {
                 refreshApplications();
             }
         });
+        skillInsightSemesterFilterBox.addActionListener(event -> {
+            if (!suppressFilterRefresh) {
+                refreshSkillInsights();
+            }
+        });
 
         pagePanel.add(UiFactory.scrollPane(buildDashboardPage()), DASHBOARD_PAGE);
         pagePanel.add(UiFactory.scrollPane(buildProfilePage()), PROFILE_PAGE);
         pagePanel.add(UiFactory.scrollPane(buildJobsPage()), JOBS_PAGE);
         pagePanel.add(UiFactory.scrollPane(buildApplicationsPage()), APPLICATIONS_PAGE);
+        pagePanel.add(UiFactory.scrollPane(buildSkillInsightsPage()), INSIGHTS_PAGE);
         add(pagePanel, BorderLayout.CENTER);
     }
 
@@ -203,6 +228,7 @@ public class ApplicantWorkspacePanel extends JPanel {
         refreshJobs();
         refreshDashboard();
         refreshApplications();
+        refreshSkillInsights();
         showPage(DASHBOARD_PAGE);
     }
 
@@ -224,6 +250,8 @@ public class ApplicantWorkspacePanel extends JPanel {
         sidebar.add(navButton("Jobs", JOBS_PAGE));
         sidebar.add(Box.createVerticalStrut(12));
         sidebar.add(navButton("Applications", APPLICATIONS_PAGE));
+        sidebar.add(Box.createVerticalStrut(12));
+        sidebar.add(navButton("Skill Insights", INSIGHTS_PAGE));
         sidebar.add(Box.createVerticalStrut(12));
         JButton accountButton = UiFactory.navButton("Account");
         accountButton.addActionListener(event -> accountAction.run());
@@ -251,16 +279,19 @@ public class ApplicantWorkspacePanel extends JPanel {
         page.add(dashboardProfileStatus);
         page.add(Box.createVerticalStrut(24));
 
-        JPanel grid = new JPanel(new GridLayout(1, 2, 20, 0));
+        JPanel grid = new JPanel(new GridLayout(1, 3, 20, 0));
         grid.setOpaque(false);
 
         JPanel jobsCard = UiFactory.card();
         jobsCard.add(sectionWithBody("Open teaching assistant vacancies", dashboardJobs), BorderLayout.CENTER);
         JPanel notificationCard = UiFactory.card();
         notificationCard.add(sectionWithBody("Latest updates", dashboardNotifications), BorderLayout.CENTER);
+        JPanel insightCard = UiFactory.card();
+        insightCard.add(sectionWithBody("Profile improvement focus", dashboardInsights), BorderLayout.CENTER);
 
         grid.add(jobsCard);
         grid.add(notificationCard);
+        grid.add(insightCard);
         page.add(grid);
         return page;
     }
@@ -385,6 +416,8 @@ public class ApplicantWorkspacePanel extends JPanel {
         content.add(detailSummaryLabel);
         content.add(Box.createVerticalStrut(8));
         content.add(detailApplicationStatusLabel);
+        content.add(Box.createVerticalStrut(8));
+        content.add(detailSkillInsightLabel);
         content.add(Box.createVerticalStrut(16));
         content.add(UiFactory.bodyLabel("Requirements"));
         content.add(Box.createVerticalStrut(8));
@@ -416,6 +449,30 @@ public class ApplicantWorkspacePanel extends JPanel {
         page.add(buildApplicationFiltersCard());
         page.add(Box.createVerticalStrut(24));
         page.add(applicationsListPanel);
+        return page;
+    }
+
+    private JPanel buildSkillInsightsPage() {
+        JPanel page = pageWrapper();
+        page.add(UiFactory.titleLabel("Skill Insights"));
+        page.add(Box.createVerticalStrut(8));
+        page.add(UiFactory.mutedLabel("See which requirements you already cover, what is still missing, and how to strengthen your profile before applying."));
+        page.add(Box.createVerticalStrut(18));
+
+        JPanel filterCard = UiFactory.card();
+        JPanel topRow = UiFactory.flowPanel(FlowLayout.LEFT, 14, 0);
+        topRow.add(UiFactory.bodyLabel("Semester"));
+        topRow.add(skillInsightSemesterFilterBox);
+        JButton clearButton = UiFactory.lightButton("Show all");
+        clearButton.addActionListener(event -> resetSkillInsightFilters());
+        topRow.add(clearButton);
+        JButton refreshButton = UiFactory.secondaryButton("Refresh insights");
+        refreshButton.addActionListener(event -> refreshSkillInsights());
+        topRow.add(refreshButton);
+        filterCard.add(topRow, BorderLayout.CENTER);
+        page.add(filterCard);
+        page.add(Box.createVerticalStrut(24));
+        page.add(skillInsightsListPanel);
         return page;
     }
 
@@ -543,6 +600,10 @@ public class ApplicantWorkspacePanel extends JPanel {
         rebuildVerticalList(dashboardNotifications, notificationService.getNotificationsForUser(currentUser.id()).stream()
                 .map(this::notificationCard)
                 .toList(), "No updates yet.");
+        rebuildVerticalList(dashboardInsights, analyticsService.getApplicantSkillGaps(currentUser.id(), WorkloadService.ALL_SEMESTERS_FILTER).stream()
+                .limit(3)
+                .map(this::dashboardSkillInsightCard)
+                .toList(), "No skill insights are available yet.");
     }
 
     private Component dashboardJobCard(JobPosting job) {
@@ -587,6 +648,79 @@ public class ApplicantWorkspacePanel extends JPanel {
         content.add(UiFactory.bodyLabel("<html>" + item.message() + "</html>"));
         content.add(Box.createVerticalStrut(8));
         content.add(UiFactory.mutedLabel(item.createdAt().replace('T', ' ')));
+        card.add(content, BorderLayout.CENTER);
+        return card;
+    }
+
+    private Component dashboardSkillInsightCard(AnalyticsService.ApplicantSkillGap gap) {
+        JPanel card = UiFactory.card();
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 120));
+        JPanel content = new JPanel();
+        content.setOpaque(false);
+        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+        JLabel title = UiFactory.bodyLabel(gap.jobTitle());
+        title.setFont(Theme.BUTTON_FONT);
+        content.add(title);
+        content.add(Box.createVerticalStrut(6));
+        content.add(UiFactory.mutedLabel(gap.matchScore() + "% match • " + gap.readinessLabel()));
+        content.add(Box.createVerticalStrut(6));
+        content.add(UiFactory.bodyLabel("<html>" + (gap.missingSkills().isEmpty()
+                ? "You already cover the listed requirements."
+                : "Missing: " + String.join(" | ", gap.missingSkills())) + "</html>"));
+        card.add(content, BorderLayout.CENTER);
+        return card;
+    }
+
+    private void refreshSkillInsights() {
+        reloadSkillInsightFilters();
+        List<AnalyticsService.ApplicantSkillGap> gaps = analyticsService.getApplicantSkillGaps(
+                currentUser.id(),
+                selectedComboValue(skillInsightSemesterFilterBox, ALL_SEMESTERS)
+        );
+        rebuildVerticalList(
+                skillInsightsListPanel,
+                gaps.stream().map(this::skillInsightCard).toList(),
+                "No skill insights are available for the selected jobs."
+        );
+    }
+
+    private Component skillInsightCard(AnalyticsService.ApplicantSkillGap gap) {
+        JPanel card = UiFactory.card();
+        JPanel content = new JPanel();
+        content.setOpaque(false);
+        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+
+        JLabel title = UiFactory.bodyLabel(gap.jobTitle());
+        title.setFont(Theme.BUTTON_FONT);
+        content.add(title);
+        content.add(Box.createVerticalStrut(6));
+        content.add(UiFactory.mutedLabel(gap.moduleCode() + " • " + gap.semester()));
+        content.add(Box.createVerticalStrut(8));
+
+        JPanel badgeRow = UiFactory.flowPanel(FlowLayout.LEFT, 8, 0);
+        badgeRow.add(pillLabel(gap.matchScore() + "% match", Theme.PRIMARY_DARK, Color.WHITE));
+        badgeRow.add(pillLabel(gap.readinessLabel(), gap.missingSkills().isEmpty() ? Theme.SUCCESS : Theme.ACCENT, Color.WHITE));
+        if (gap.alreadyApplied()) {
+            badgeRow.add(pillLabel("Already applied", Theme.SURFACE_MUTED, Theme.TEXT));
+        }
+        content.add(badgeRow);
+        content.add(Box.createVerticalStrut(10));
+        content.add(UiFactory.bodyLabel("<html><b>Matched:</b> " + formatInlineList(gap.matchedSkills(), "No direct skill overlap detected") + "</html>"));
+        content.add(Box.createVerticalStrut(4));
+        content.add(UiFactory.bodyLabel("<html><b>Missing:</b> " + formatInlineList(gap.missingSkills(), "No missing skills identified") + "</html>"));
+        content.add(Box.createVerticalStrut(8));
+        content.add(UiFactory.bodyLabel("<html><b>Suggestions:</b> " + formatInlineList(gap.suggestions(), "No suggestions available") + "</html>"));
+        content.add(Box.createVerticalStrut(14));
+
+        JPanel actionRow = UiFactory.flowPanel(FlowLayout.LEFT, 10, 0);
+        JButton viewJobButton = UiFactory.lightButton("View job");
+        viewJobButton.addActionListener(event -> openJobFromInsight(gap.jobId()));
+        JButton profileButton = UiFactory.secondaryButton("Improve profile");
+        profileButton.addActionListener(event -> showPage(PROFILE_PAGE));
+        actionRow.add(viewJobButton);
+        actionRow.add(profileButton);
+        content.add(actionRow);
+
         card.add(content, BorderLayout.CENTER);
         return card;
     }
@@ -725,6 +859,7 @@ public class ApplicantWorkspacePanel extends JPanel {
             detailTitleLabel.setText("Job Detail");
             detailSummaryLabel.setText("Select a role to review its details.");
             detailApplicationStatusLabel.setText("Apply to see this role appear in your application tracker.");
+            detailSkillInsightLabel.setText("Match analysis appears here after a role is selected.");
             detailRequirementsArea.setText("No job selected.");
             detailDescriptionArea.setText("");
             applyButton.setText("Apply now");
@@ -734,6 +869,7 @@ public class ApplicantWorkspacePanel extends JPanel {
 
         detailTitleLabel.setText(selectedJob.title());
         detailSummaryLabel.setText(selectedJob.moduleCode() + " • " + selectedJob.moduleName() + " • " + selectedJob.semester() + " • " + selectedJob.hoursPerWeek() + " hrs/week");
+        updateDetailSkillInsight();
         detailRequirementsArea.setText("• " + selectedJob.requiredSkills().replace("; ", "\n• "));
         detailDescriptionArea.setText(selectedJob.description());
         Optional<JobApplication> applicationOptional = applicationFor(selectedJob);
@@ -757,6 +893,28 @@ public class ApplicantWorkspacePanel extends JPanel {
                 : "Complete your profile before you submit an application.");
         applyButton.setText("Apply now");
         applyButton.setEnabled(true);
+    }
+
+    private void updateDetailSkillInsight() {
+        if (selectedJob == null) {
+            detailSkillInsightLabel.setText("Match analysis appears here after a role is selected.");
+            return;
+        }
+        AnalyticsService.ApplicantSkillGap gap = analyticsService.getApplicantSkillGaps(currentUser.id(), selectedJob.semester()).stream()
+                .filter(item -> item.jobId().equals(selectedJob.id()))
+                .findFirst()
+                .orElse(null);
+        if (gap == null) {
+            detailSkillInsightLabel.setText("No profile match analysis is available for this vacancy yet.");
+            return;
+        }
+        detailSkillInsightLabel.setText("<html>Profile match: "
+                + gap.matchScore()
+                + "% • "
+                + (gap.missingSkills().isEmpty()
+                ? "You already cover the listed requirements."
+                : "Missing: " + String.join(" | ", gap.missingSkills()))
+                + "</html>");
     }
 
     private void refreshApplications() {
@@ -830,10 +988,19 @@ public class ApplicantWorkspacePanel extends JPanel {
         setSelectedApplicationStatus(selectedApplicationStatusLabel());
     }
 
+    private void reloadSkillInsightFilters() {
+        reloadComboBox(skillInsightSemesterFilterBox, ALL_SEMESTERS, jobService.availableSemesters());
+    }
+
     private void resetApplicationFilters() {
         applicationSemesterFilterBox.setSelectedItem(ALL_SEMESTERS);
         setSelectedApplicationStatus(ALL_STATUSES);
         refreshApplications();
+    }
+
+    private void resetSkillInsightFilters() {
+        skillInsightSemesterFilterBox.setSelectedItem(ALL_SEMESTERS);
+        refreshSkillInsights();
     }
 
     private void reloadComboBox(JComboBox<String> comboBox, String defaultItem, List<String> dynamicItems) {
@@ -1103,8 +1270,20 @@ public class ApplicantWorkspacePanel extends JPanel {
         return Optional.ofNullable(applicationsByJobId.get(job.id()));
     }
 
+    private void openJobFromInsight(String jobId) {
+        jobService.findById(jobId).ifPresent(job -> {
+            selectedJob = job;
+            updateJobDetailPanel();
+            showPage(JOBS_PAGE);
+        });
+    }
+
     private void showPage(String page) {
         pageLayout.show(pagePanel, page);
+    }
+
+    private String formatInlineList(List<String> items, String fallback) {
+        return items.isEmpty() ? fallback : String.join(" | ", items);
     }
 
     private void rebuildVerticalList(JPanel container, List<Component> cards, String emptyMessage) {
