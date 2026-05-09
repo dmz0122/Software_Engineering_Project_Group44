@@ -1,5 +1,6 @@
 package com.group44.tarecruit.data;
 
+import com.group44.tarecruit.model.ActivityLogItem;
 import com.group44.tarecruit.model.ApplicantProfile;
 import com.group44.tarecruit.model.ApplicationStatus;
 import com.group44.tarecruit.model.JobApplication;
@@ -29,6 +30,7 @@ public class SeedDataInitializer {
         JobRepository jobRepository = new JobRepository(dataDirectory.resolve("jobs.csv"));
         ApplicationRepository applicationRepository = new ApplicationRepository(dataDirectory.resolve("applications.csv"));
         NotificationRepository notificationRepository = new NotificationRepository(dataDirectory.resolve("notifications.csv"));
+        ActivityLogRepository activityLogRepository = new ActivityLogRepository(dataDirectory.resolve("activity_logs.csv"));
 
         ensureSeedUsers(userRepository);
 
@@ -137,21 +139,26 @@ public class SeedDataInitializer {
                     new NotificationItem("note-new-1", "ta-new", "Welcome", "Create your applicant profile to start applying for TA roles.", "2026-04-03T09:00:00")
             ));
         }
+
+        if (activityLogRepository.findAll().isEmpty()) {
+            activityLogRepository.saveAll(List.of(
+                    new ActivityLogItem("log-1", "Job", "mo-olivia", "", "Job posted", "Programming TA (CS101) was published for Semester A.", "2026-03-28T14:00:00"),
+                    new ActivityLogItem("log-2", "Notification", "", "ta-amy", "Application update", "Your Programming TA application is under review.", "2026-04-01T10:05:00"),
+                    new ActivityLogItem("log-3", "Notification", "", "ta-bob", "Application update", "Your Programming TA application is under review.", "2026-04-01T11:05:00"),
+                    new ActivityLogItem("log-4", "Profile", "ta-amy", "ta-amy", "Profile saved", "Applicant profile details were created or updated.", "2026-04-02T09:30:00"),
+                    new ActivityLogItem("log-5", "Notification", "", "ta-new", "Welcome", "Create your applicant profile to start applying for TA roles.", "2026-04-03T09:00:00")
+            ));
+        }
     }
 
     private void ensureSeedUsers(UserRepository userRepository) {
         List<UserAccount> users = new ArrayList<>(userRepository.findAll());
         boolean changed = false;
-        List<UserAccount> demoAccounts = List.of(
-                new UserAccount("ta-new", Role.APPLICANT, "New Student", "newta@school.edu", "password123"),
-                new UserAccount("ta-amy", Role.APPLICANT, "Amy Parker", "amy@school.edu", "password123"),
-                new UserAccount("ta-bob", Role.APPLICANT, "Bob Chen", "bob@school.edu", "password123"),
-                new UserAccount("mo-olivia", Role.ORGANISER, "Olivia Moore", "mo@school.edu", "password123"),
-                new UserAccount("admin-cindy", Role.ADMIN, "Cindy Admin", "admin@school.edu", "password123")
-        );
-        for (UserAccount account : demoAccounts) {
-            changed |= ensureUser(users, account);
-        }
+        changed |= ensureUser(users, new UserAccount("ta-new", Role.APPLICANT, "New Student", "newta@school.edu", "password123"));
+        changed |= ensureUser(users, new UserAccount("ta-amy", Role.APPLICANT, "Amy Parker", "amy@school.edu", "password123"));
+        changed |= ensureUser(users, new UserAccount("ta-bob", Role.APPLICANT, "Bob Chen", "bob@school.edu", "password123"));
+        changed |= ensureUser(users, new UserAccount("mo-olivia", Role.ORGANISER, "Olivia Moore", "mo@school.edu", "password123"));
+        changed |= ensureUser(users, new UserAccount("admin-cindy", Role.ADMIN, "Cindy Admin", "admin@school.edu", "password123"));
         if (changed) {
             userRepository.saveAll(users);
         }
