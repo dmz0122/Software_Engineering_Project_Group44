@@ -6,6 +6,7 @@ import com.group44.tarecruit.data.ApplicationRepository;
 import com.group44.tarecruit.data.JobRepository;
 import com.group44.tarecruit.data.NotificationRepository;
 import com.group44.tarecruit.data.ProfileRepository;
+import com.group44.tarecruit.data.SavedJobRepository;
 import com.group44.tarecruit.data.SeedDataInitializer;
 import com.group44.tarecruit.data.UserRepository;
 import com.group44.tarecruit.model.Role;
@@ -23,6 +24,7 @@ import com.group44.tarecruit.service.LlmJsonService;
 import com.group44.tarecruit.service.NotificationService;
 import com.group44.tarecruit.service.OpenAiCompatibleLlmJsonService;
 import com.group44.tarecruit.service.ProfileService;
+import com.group44.tarecruit.service.SavedJobService;
 import com.group44.tarecruit.service.WorkloadService;
 import com.group44.tarecruit.ui.components.Theme;
 
@@ -47,6 +49,7 @@ public class AppFrame extends JFrame {
     private final CvService cvService;
     private final WorkloadService workloadService;
     private final AnalyticsService analyticsService;
+    private final SavedJobService savedJobService;
     private final JPanel rootPanel;
     private final CardLayout cardLayout;
     private final LoginPanel loginPanel;
@@ -66,6 +69,7 @@ public class AppFrame extends JFrame {
         ApplicationRepository applicationRepository = new ApplicationRepository(dataDirectory.resolve("applications.csv"));
         NotificationRepository notificationRepository = new NotificationRepository(dataDirectory.resolve("notifications.csv"));
         ActivityLogRepository activityLogRepository = new ActivityLogRepository(dataDirectory.resolve("activity_logs.csv"));
+        SavedJobRepository savedJobRepository = new SavedJobRepository(dataDirectory.resolve("saved_jobs.csv"));
 
         ActivityLogService activityLogService = new ActivityLogService(activityLogRepository);
         AiConfiguration aiConfiguration = AiConfigurationLoader.load();
@@ -94,10 +98,11 @@ public class AppFrame extends JFrame {
                 activityLogService,
                 llmJsonService
         );
+        savedJobService = new SavedJobService(savedJobRepository, jobRepository);
 
         setTitle("TA Recruit");
-        setSize(1360, 860);
-        setMinimumSize(new java.awt.Dimension(1024, 700));
+        setSize(1100, 720);
+        setMinimumSize(new java.awt.Dimension(780, 560));
         setResizable(true);
         setLocationByPlatform(true);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
@@ -113,6 +118,7 @@ public class AppFrame extends JFrame {
                 applicationService,
                 notificationService,
                 analyticsService,
+                savedJobService,
                 cvService,
                 this::openAccountDialog,
                 this::logout
@@ -120,6 +126,7 @@ public class AppFrame extends JFrame {
         organiserWorkspacePanel = new OrganiserWorkspacePanel(
                 applicationService,
                 jobService,
+                analyticsService,
                 cvService,
                 this::openAccountDialog,
                 this::logout
@@ -152,7 +159,8 @@ public class AppFrame extends JFrame {
                     request.password(),
                     request.confirmPassword()
             );
-            JOptionPane.showMessageDialog(this, "Account created successfully. You can now sign in with " + user.email() + ".");
+            JOptionPane.showMessageDialog(this, "Account created successfully. Signing you in as " + user.email() + ".");
+            startSession(user);
         } catch (IllegalArgumentException exception) {
             JOptionPane.showMessageDialog(this, exception.getMessage());
         }

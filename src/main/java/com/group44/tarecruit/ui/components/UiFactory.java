@@ -6,6 +6,7 @@ import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.Scrollable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
@@ -19,6 +20,7 @@ import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.Rectangle;
 
 public final class UiFactory {
     private UiFactory() {
@@ -67,7 +69,7 @@ public final class UiFactory {
     public static JButton navButton(String text) {
         JButton button = button(text, Theme.SURFACE_MUTED, Theme.TEXT);
         button.setHorizontalAlignment(SwingConstants.LEFT);
-        button.setPreferredSize(new Dimension(190, 48));
+        button.setPreferredSize(new Dimension(148, 34));
         return button;
     }
 
@@ -77,7 +79,7 @@ public final class UiFactory {
         button.setFocusPainted(false);
         button.setBackground(background);
         button.setForeground(foreground);
-        button.setBorder(BorderFactory.createEmptyBorder(12, 18, 12, 18));
+        button.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10));
         button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         button.setOpaque(true);
         return button;
@@ -88,7 +90,7 @@ public final class UiFactory {
         field.setFont(Theme.BODY_FONT);
         field.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(Theme.BORDER, 1, true),
-                BorderFactory.createEmptyBorder(10, 12, 10, 12)
+                BorderFactory.createEmptyBorder(7, 9, 7, 9)
         ));
         return field;
     }
@@ -122,7 +124,7 @@ public final class UiFactory {
         area.setFont(Theme.BODY_FONT);
         area.setLineWrap(true);
         area.setWrapStyleWord(true);
-        area.setBorder(BorderFactory.createEmptyBorder(10, 12, 10, 12));
+        area.setBorder(BorderFactory.createEmptyBorder(7, 9, 7, 9));
         return area;
     }
 
@@ -140,8 +142,10 @@ public final class UiFactory {
     }
 
     public static JScrollPane scrollPane(Component component) {
-        JScrollPane scrollPane = new JScrollPane(component);
+        Component view = component instanceof Scrollable ? component : new ViewportWidthPanel(component);
+        JScrollPane scrollPane = new JScrollPane(view);
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
+        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         scrollPane.getViewport().setBackground(Theme.APP_BACKGROUND);
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
         return scrollPane;
@@ -151,5 +155,38 @@ public final class UiFactory {
         Dimension preferred = component.getPreferredSize();
         component.setPreferredSize(new Dimension(preferred.width, height));
         component.setMaximumSize(new Dimension(Integer.MAX_VALUE, height));
+    }
+
+    private static final class ViewportWidthPanel extends JPanel implements Scrollable {
+        private ViewportWidthPanel(Component component) {
+            super(new BorderLayout());
+            setOpaque(false);
+            add(component, BorderLayout.CENTER);
+        }
+
+        @Override
+        public Dimension getPreferredScrollableViewportSize() {
+            return getPreferredSize();
+        }
+
+        @Override
+        public int getScrollableUnitIncrement(Rectangle visibleRect, int orientation, int direction) {
+            return 16;
+        }
+
+        @Override
+        public int getScrollableBlockIncrement(Rectangle visibleRect, int orientation, int direction) {
+            return Math.max(64, visibleRect.height - 32);
+        }
+
+        @Override
+        public boolean getScrollableTracksViewportWidth() {
+            return true;
+        }
+
+        @Override
+        public boolean getScrollableTracksViewportHeight() {
+            return false;
+        }
     }
 }

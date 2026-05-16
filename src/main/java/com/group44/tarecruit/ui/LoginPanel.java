@@ -40,9 +40,9 @@ public class LoginPanel extends JPanel {
     private JPanel buildHeroPanel() {
         JPanel hero = new JPanel();
         hero.setBackground(Theme.PRIMARY_DARK);
-        hero.setPreferredSize(new Dimension(380, 720));
+        hero.setPreferredSize(new Dimension(286, 620));
         hero.setLayout(new BoxLayout(hero, BoxLayout.Y_AXIS));
-        hero.setBorder(javax.swing.BorderFactory.createEmptyBorder(72, 42, 72, 42));
+        hero.setBorder(javax.swing.BorderFactory.createEmptyBorder(42, 32, 42, 32));
 
         JLabel brand = UiFactory.titleLabel("TA Recruit");
         brand.setForeground(Theme.SURFACE);
@@ -88,7 +88,7 @@ public class LoginPanel extends JPanel {
     private JPanel buildFormPanel() {
         JPanel wrapper = new JPanel(new BorderLayout());
         wrapper.setOpaque(false);
-        wrapper.setBorder(javax.swing.BorderFactory.createEmptyBorder(56, 52, 56, 72));
+        wrapper.setBorder(javax.swing.BorderFactory.createEmptyBorder(28, 32, 28, 40));
 
         JPanel card = UiFactory.card();
         card.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
@@ -147,11 +147,14 @@ public class LoginPanel extends JPanel {
         JPanel panel = new JPanel();
         panel.setOpaque(false);
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setAlignmentX(LEFT_ALIGNMENT);
         JLabel label = UiFactory.bodyLabel(labelText);
         label.setFont(Theme.BUTTON_FONT);
+        label.setAlignmentX(LEFT_ALIGNMENT);
+        field.setAlignmentX(LEFT_ALIGNMENT);
         panel.add(label);
         panel.add(Box.createVerticalStrut(8));
-        UiFactory.fixedHeight(field, 44);
+        UiFactory.fixedHeight(field, 36);
         panel.add(field);
         return panel;
     }
@@ -188,6 +191,7 @@ public class LoginPanel extends JPanel {
         form.add(labeledField("Display name", nameField));
         form.add(labeledField("Email", emailField));
         form.add(labeledField("Password", passwordField));
+        form.add(UiFactory.mutedLabel("Password must contain at least 6 characters."));
         form.add(labeledField("Confirm password", confirmField));
 
         int result = JOptionPane.showConfirmDialog(this, form, "Create Applicant Account", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
