@@ -331,6 +331,8 @@ class ApplicationServiceTest {
         service.shortlistApplicant("app-1", "Strong tutoring profile.");
 
         assertEquals(ApplicationStatus.SHORTLISTED, applicationRepository.findById("app-1").orElseThrow().status());
+        assertEquals(1, service.findApplicantsForJob("job-1", "", ApplicationStatus.SHORTLISTED).size());
+        assertTrue(notificationRepository.findAll().getFirst().message().contains("Please wait for an interview invitation"));
         assertEquals(1, service.findApplicantsForJob("job-1", "java").size());
         assertEquals("Amy Parker", service.findApplicantsForJob("job-1", "AMY").getFirst().applicant().displayName());
         assertThrows(IllegalArgumentException.class, () -> service.shortlistApplicant("app-1", "Again"));

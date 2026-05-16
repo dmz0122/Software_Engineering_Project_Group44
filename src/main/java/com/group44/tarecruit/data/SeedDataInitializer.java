@@ -139,6 +139,7 @@ public class SeedDataInitializer {
                     new NotificationItem("note-new-1", "ta-new", "Welcome", "Create your applicant profile to start applying for TA roles.", "2026-04-03T09:00:00")
             ));
         }
+        ensureDemoApplicationStates(applicationRepository, jobRepository, profileRepository, notificationRepository);
 
         if (activityLogRepository.findAll().isEmpty()) {
             activityLogRepository.saveAll(List.of(
@@ -149,6 +150,184 @@ public class SeedDataInitializer {
                     new ActivityLogItem("log-5", "Notification", "", "ta-new", "Welcome", "Create your applicant profile to start applying for TA roles.", "2026-04-03T09:00:00")
             ));
         }
+    }
+
+    private void ensureDemoApplicationStates(
+            ApplicationRepository applicationRepository,
+            JobRepository jobRepository,
+            ProfileRepository profileRepository,
+            NotificationRepository notificationRepository
+    ) {
+        List<JobPosting> jobs = new ArrayList<>(jobRepository.findAll());
+        List<ApplicantProfile> profiles = new ArrayList<>(profileRepository.findAll());
+        List<JobApplication> applications = new ArrayList<>(applicationRepository.findAll());
+        List<NotificationItem> notifications = new ArrayList<>(notificationRepository.findAll());
+        boolean changedJobs = false;
+        boolean changedProfiles = false;
+        boolean changedApplications = false;
+        boolean changedNotifications = false;
+
+        changedJobs |= ensureJob(jobs, new JobPosting(
+                "job-data",
+                "Data Analytics TA",
+                "DS205",
+                "Applied Data Analytics",
+                "Semester B",
+                "5",
+                "Python data analysis; dashboard support; clear communication",
+                "Python|Analytics",
+                "Support data labs, answer analysis questions and help students interpret dashboard outputs.",
+                1
+        ));
+        changedJobs |= ensureJob(jobs, new JobPosting(
+                "job-research",
+                "Research Methods TA",
+                "RM301",
+                "Research Methods",
+                "Semester B",
+                "6",
+                "Research design; feedback literacy; interview facilitation",
+                "Research|Methods",
+                "Help run seminars, support research planning clinics and coordinate small-group feedback.",
+                1
+        ));
+        changedJobs |= ensureJob(jobs, new JobPosting(
+                "job-systems",
+                "Systems Lab TA",
+                "CS220",
+                "Computer Systems",
+                "Semester B",
+                "7",
+                "Linux basics; lab troubleshooting; patient communication",
+                "Linux|Labs",
+                "Support systems labs and guide students through debugging practical exercises.",
+                1
+        ));
+        changedJobs |= ensureJob(jobs, new JobPosting(
+                "job-ai",
+                "AI Studio TA",
+                "AI310",
+                "Applied AI Studio",
+                "Semester B",
+                "4",
+                "Python; prompt evaluation; project mentoring",
+                "AI|Python",
+                "Support project studios, review prototypes and guide responsible AI evaluation.",
+                1
+        ));
+
+        changedProfiles |= ensureProfile(profiles, new ApplicantProfile(
+                "ta-new",
+                "New Student",
+                "20240003",
+                "BSc Software Engineering",
+                "Year 2",
+                "Python, dashboards, communication",
+                "Fri AM",
+                "3.6",
+                "",
+                "",
+                "",
+                "",
+                "2026-04-04T10:00:00"
+        ));
+
+        changedApplications |= ensureApplication(applications, new JobApplication(
+                "app-amy-data",
+                "job-data",
+                "ta-amy",
+                ApplicationStatus.SHORTLISTED,
+                "2026-04-03T10:00:00",
+                "Shortlisted for further review. Please wait for an interview invitation or next-step update.",
+                ""
+        ));
+        changedApplications |= ensureApplication(applications, new JobApplication(
+                "app-amy-research",
+                "job-research",
+                "ta-amy",
+                ApplicationStatus.INTERVIEW_SCHEDULED,
+                "2026-04-04T10:00:00",
+                "Interview scheduled. Please prepare one tutoring example.",
+                "2026-05-20T09:00"
+        ));
+        changedApplications |= ensureApplication(applications, new JobApplication(
+                "app-amy-systems",
+                "job-systems",
+                "ta-amy",
+                ApplicationStatus.SELECTED,
+                "2026-04-05T10:00:00",
+                "You have been selected for this role. Await onboarding details.",
+                ""
+        ));
+        changedApplications |= ensureApplication(applications, new JobApplication(
+                "app-amy-ai",
+                "job-ai",
+                "ta-amy",
+                ApplicationStatus.REJECTED,
+                "2026-04-06T10:00:00",
+                "Thank you for applying. This application was not selected.",
+                ""
+        ));
+
+        changedNotifications |= ensureNotification(notifications, new NotificationItem(
+                "note-amy-shortlisted",
+                "ta-amy",
+                "Application shortlisted",
+                "You have been shortlisted for Data Analytics TA. Please wait for an interview invitation or further review.",
+                "2026-04-03T10:05:00"
+        ));
+        changedNotifications |= ensureNotification(notifications, new NotificationItem(
+                "note-amy-interview",
+                "ta-amy",
+                "Interview scheduled",
+                "Your interview for Research Methods TA is scheduled for 2026-05-20 09:00.",
+                "2026-04-04T10:05:00"
+        ));
+
+        if (changedJobs) {
+            jobRepository.saveAll(jobs);
+        }
+        if (changedProfiles) {
+            profileRepository.saveAll(profiles);
+        }
+        if (changedApplications) {
+            applicationRepository.saveAll(applications);
+        }
+        if (changedNotifications) {
+            notificationRepository.saveAll(notifications);
+        }
+    }
+
+    private boolean ensureJob(List<JobPosting> jobs, JobPosting job) {
+        if (jobs.stream().anyMatch(existing -> existing.id().equals(job.id()))) {
+            return false;
+        }
+        jobs.add(job);
+        return true;
+    }
+
+    private boolean ensureProfile(List<ApplicantProfile> profiles, ApplicantProfile profile) {
+        if (profiles.stream().anyMatch(existing -> existing.applicantId().equals(profile.applicantId()))) {
+            return false;
+        }
+        profiles.add(profile);
+        return true;
+    }
+
+    private boolean ensureApplication(List<JobApplication> applications, JobApplication application) {
+        if (applications.stream().anyMatch(existing -> existing.id().equals(application.id()))) {
+            return false;
+        }
+        applications.add(application);
+        return true;
+    }
+
+    private boolean ensureNotification(List<NotificationItem> notifications, NotificationItem notification) {
+        if (notifications.stream().anyMatch(existing -> existing.id().equals(notification.id()))) {
+            return false;
+        }
+        notifications.add(notification);
+        return true;
     }
 
     private void ensureSeedUsers(UserRepository userRepository) {
