@@ -5,6 +5,7 @@ import com.group44.tarecruit.model.ApplicationStatus;
 import com.group44.tarecruit.model.JobPosting;
 import com.group44.tarecruit.model.UserAccount;
 import com.group44.tarecruit.service.ApplicationService;
+import com.group44.tarecruit.service.AnalyticsService;
 import com.group44.tarecruit.service.CvService;
 import com.group44.tarecruit.service.JobService;
 import com.group44.tarecruit.ui.components.Theme;
@@ -41,6 +42,7 @@ public class OrganiserWorkspacePanel extends JPanel {
 
     private final ApplicationService applicationService;
     private final JobService jobService;
+    private final AnalyticsService analyticsService;
     private final CvService cvService;
     private final Runnable accountAction;
     private final Runnable logoutAction;
@@ -48,6 +50,7 @@ public class OrganiserWorkspacePanel extends JPanel {
     private final CardLayout pageLayout;
     private final JPanel pagePanel;
     private final JComboBox<JobPosting> jobSelector;
+    private final JComboBox<String> statusFilterBox;
     private final JTextField applicantSearchField;
     private final JPanel applicantListPanel;
     private final JTextField roleField;
@@ -70,12 +73,14 @@ public class OrganiserWorkspacePanel extends JPanel {
     public OrganiserWorkspacePanel(
             ApplicationService applicationService,
             JobService jobService,
+            AnalyticsService analyticsService,
             CvService cvService,
             Runnable accountAction,
             Runnable logoutAction
     ) {
         this.applicationService = applicationService;
         this.jobService = jobService;
+        this.analyticsService = analyticsService;
         this.cvService = cvService;
         this.accountAction = accountAction;
         this.logoutAction = logoutAction;
@@ -86,6 +91,12 @@ public class OrganiserWorkspacePanel extends JPanel {
 
         jobSelector = new JComboBox<>();
         jobSelector.setFont(Theme.BODY_FONT);
+        statusFilterBox = new JComboBox<>();
+        statusFilterBox.setFont(Theme.BODY_FONT);
+        for (String label : List.of("All statuses", "Applied", "Under Review", "Shortlisted", "Interview", "Selected", "Rejected")) {
+            statusFilterBox.addItem(label);
+        }
+        statusFilterBox.addActionListener(event -> refreshApplicantList());
         applicantSearchField = UiFactory.textField();
         applicantListPanel = new JPanel();
         applicantListPanel.setLayout(new BoxLayout(applicantListPanel, BoxLayout.Y_AXIS));
@@ -136,6 +147,7 @@ public class OrganiserWorkspacePanel extends JPanel {
 
     public void refreshAll() {
         applicantSearchField.setText("");
+        statusFilterBox.setSelectedItem("All statuses");
         refreshJobSelector(null);
         refreshApplicantList();
         showPage(APPLICANTS_PAGE);
@@ -146,8 +158,8 @@ public class OrganiserWorkspacePanel extends JPanel {
         JPanel sidebar = new JPanel();
         sidebar.setLayout(new BoxLayout(sidebar, BoxLayout.Y_AXIS));
         sidebar.setBackground(Theme.SURFACE);
-        sidebar.setBorder(BorderFactory.createEmptyBorder(26, 24, 26, 24));
-        sidebar.setPreferredSize(new Dimension(250, 800));
+        sidebar.setBorder(BorderFactory.createEmptyBorder(16, 14, 16, 14));
+        sidebar.setPreferredSize(new Dimension(176, 620));
 
         sidebar.add(UiFactory.sectionLabel("TA Recruit"));
         sidebar.add(Box.createVerticalStrut(8));
@@ -183,7 +195,7 @@ public class OrganiserWorkspacePanel extends JPanel {
         page.add(Box.createVerticalStrut(24));
 
         JPanel controls = UiFactory.card();
-        JPanel row = new JPanel(new GridLayout(1, 3, 14, 0));
+        JPanel row = new JPanel(new GridLayout(2, 2, 10, 8));
         row.setOpaque(false);
         JPanel vacancyField = labeledField("Vacancy", jobSelector);
         jobSelector.addActionListener(event -> {
@@ -194,6 +206,7 @@ public class OrganiserWorkspacePanel extends JPanel {
         jobSelector.setRenderer((list, value, index, isSelected, cellHasFocus) ->
                 new JLabel(value == null ? "" : value.title() + " — " + value.moduleCode()));
         row.add(vacancyField);
+        row.add(labeledField("Status", statusFilterBox));
         row.add(labeledField("Search applicants", applicantSearchField));
         JPanel actionField = new JPanel();
         actionField.setOpaque(false);
@@ -203,6 +216,10 @@ public class OrganiserWorkspacePanel extends JPanel {
         JButton clearSearchButton = UiFactory.lightButton("Clear search");
         clearSearchButton.addActionListener(event -> applicantSearchField.setText(""));
         actionField.add(clearSearchButton);
+        actionField.add(Box.createVerticalStrut(8));
+        JButton shortlistOnlyButton = UiFactory.secondaryButton("Shortlist list");
+        shortlistOnlyButton.addActionListener(event -> statusFilterBox.setSelectedItem(ApplicationStatus.SHORTLISTED.label()));
+        actionField.add(shortlistOnlyButton);
         row.add(actionField);
         controls.add(row, BorderLayout.CENTER);
         page.add(controls);
@@ -218,7 +235,7 @@ public class OrganiserWorkspacePanel extends JPanel {
         page.add(UiFactory.mutedLabel("Create a new vacancy with the role, module details, required skills and workload information."));
         page.add(Box.createVerticalStrut(24));
 
-        JPanel grid = new JPanel(new GridLayout(1, 2, 20, 0));
+        JPanel grid = new JPanel(new GridLayout(1, 2, 10, 0));
         grid.setOpaque(false);
         grid.add(buildPostJobFormCard());
         grid.add(buildPostJobPreviewCard());
@@ -230,7 +247,7 @@ public class OrganiserWorkspacePanel extends JPanel {
         JPanel page = new JPanel();
         page.setOpaque(false);
         page.setLayout(new BoxLayout(page, BoxLayout.Y_AXIS));
-        page.setBorder(BorderFactory.createEmptyBorder(28, 28, 28, 28));
+        page.setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
         return page;
     }
 
@@ -240,10 +257,11 @@ public class OrganiserWorkspacePanel extends JPanel {
         if (selectedJob == null) {
             applicantListPanel.add(UiFactory.mutedLabel("No vacancies are available."));
         } else {
-            List<ApplicationService.ApplicantReviewItem> items = applicationService.findApplicantsForJob(selectedJob.id(), applicantSearchField.getText());
+            ApplicationStatus statusFilter = selectedStatusFilter();
+            List<ApplicationService.ApplicantReviewItem> items = applicationService.findApplicantsForJob(selectedJob.id(), applicantSearchField.getText(), statusFilter);
             if (items.isEmpty()) {
                 applicantListPanel.add(UiFactory.mutedLabel(applicantSearchField.getText().isBlank()
-                        ? "No applicants yet for this vacancy."
+                        ? (statusFilter == null ? "No applicants yet for this vacancy." : "No applicants match this status.")
                         : "No applicants matched the current search."));
             } else {
                 for (int index = 0; index < items.size(); index++) {
@@ -265,7 +283,7 @@ public class OrganiserWorkspacePanel extends JPanel {
         content.setOpaque(false);
         content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
 
-        JPanel fieldsGrid = new JPanel(new GridLayout(0, 2, 18, 16));
+        JPanel fieldsGrid = new JPanel(new GridLayout(0, 2, 12, 10));
         fieldsGrid.setOpaque(false);
         fieldsGrid.add(labeledField("Role", roleField));
         fieldsGrid.add(labeledField("Hours/week", hoursPerWeekField));
@@ -281,7 +299,7 @@ public class OrganiserWorkspacePanel extends JPanel {
         content.add(scrollField("Description", descriptionArea));
         content.add(Box.createVerticalStrut(18));
 
-        JPanel actions = new JPanel(new GridLayout(1, 3, 12, 0));
+        JPanel actions = new JPanel(new GridLayout(1, 3, 8, 0));
         actions.setOpaque(false);
         JButton publishButton = UiFactory.primaryButton("Publish Job");
         publishButton.addActionListener(event -> publishJob());
@@ -336,7 +354,7 @@ public class OrganiserWorkspacePanel extends JPanel {
         content.add(Box.createVerticalStrut(6));
         JPanel metaRow = UiFactory.flowPanel(FlowLayout.LEFT, 10, 0);
         metaRow.add(statusPill(item.application().status()));
-        metaRow.add(pillLabel(item.fitScore() + "% match", Theme.PRIMARY_DARK, Color.WHITE));
+        metaRow.add(pillLabel(matchScore(job, item) + "% match", Theme.PRIMARY_DARK, Color.WHITE));
         if (item.application().hasInterviewScheduled()) {
             metaRow.add(pillLabel("Interview " + item.application().interviewAt().replace('T', ' '), Theme.ACCENT, Color.WHITE));
         }
@@ -358,7 +376,7 @@ public class OrganiserWorkspacePanel extends JPanel {
         }
         content.add(Box.createVerticalStrut(16));
 
-        JPanel actions = new JPanel(new GridLayout(2, 3, 10, 10));
+        JPanel actions = new JPanel(new GridLayout(2, 3, 8, 8));
         actions.setOpaque(false);
         JButton openCvButton = UiFactory.lightButton("Open CV");
         openCvButton.setEnabled(!profile.cvStoredPath().isBlank());
@@ -406,6 +424,24 @@ public class OrganiserWorkspacePanel extends JPanel {
             case REJECTED -> pillLabel(status.label(), new Color(249, 217, 217), new Color(138, 42, 42));
             case WITHDRAWN -> pillLabel(status.label(), new Color(229, 231, 235), Theme.SUBTLE_TEXT);
         };
+    }
+
+    private ApplicationStatus selectedStatusFilter() {
+        Object item = statusFilterBox.getSelectedItem();
+        if (item == null || "All statuses".equalsIgnoreCase(item.toString())) {
+            return null;
+        }
+        return ApplicationStatus.fromLabel(item.toString());
+    }
+
+    private int matchScore(JobPosting job, ApplicationService.ApplicantReviewItem item) {
+        return analyticsService.getLocalJobMatchInsights(job.semester()).stream()
+                .filter(insight -> insight.jobId().equals(job.id()))
+                .flatMap(insight -> insight.applicants().stream())
+                .filter(applicant -> applicant.applicationId().equals(item.application().id()))
+                .mapToInt(AnalyticsService.ApplicantMatchInsight::matchScore)
+                .findFirst()
+                .orElse(item.fitScore());
     }
 
     private JLabel pillLabel(String text, Color background, Color foreground) {

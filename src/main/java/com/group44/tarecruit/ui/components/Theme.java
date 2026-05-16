@@ -18,11 +18,11 @@ public final class Theme {
     public static final Color WARNING = new Color(229, 139, 68);
     public static final Color BORDER = new Color(199, 213, 229);
 
-    public static final Font TITLE_FONT = new Font("Segoe UI Variable Display", Font.BOLD, 34);
-    public static final Font SECTION_FONT = new Font("Segoe UI Variable Display", Font.BOLD, 22);
-    public static final Font BODY_FONT = new Font("Segoe UI", Font.PLAIN, 15);
-    public static final Font SMALL_FONT = new Font("Segoe UI", Font.PLAIN, 13);
-    public static final Font BUTTON_FONT = new Font("Segoe UI", Font.BOLD, 15);
+    public static final Font TITLE_FONT = new Font("Segoe UI Variable Display", Font.BOLD, 30);
+    public static final Font SECTION_FONT = new Font("Segoe UI Variable Display", Font.BOLD, 20);
+    public static final Font BODY_FONT = new Font("Segoe UI", Font.PLAIN, 14);
+    public static final Font SMALL_FONT = new Font("Segoe UI", Font.PLAIN, 12);
+    public static final Font BUTTON_FONT = new Font("Segoe UI", Font.BOLD, 13);
 
     private Theme() {
     }
@@ -30,7 +30,7 @@ public final class Theme {
     public static Border cardBorder() {
         return BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(BORDER, 1, true),
-                BorderFactory.createEmptyBorder(22, 22, 22, 22)
+                BorderFactory.createEmptyBorder(12, 12, 12, 12)
         );
     }
 }

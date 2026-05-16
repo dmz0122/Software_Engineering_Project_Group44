@@ -49,8 +49,10 @@ public class AdminWorkspacePanel extends JPanel {
     private final JLabel detailMetaLabel;
     private final JTextArea detailArea;
     private final JComboBox<String> matchingSemesterFilterBox;
+    private final JLabel matchingFallbackLabel;
     private final JPanel matchingListPanel;
     private final JComboBox<String> suggestionsSemesterFilterBox;
+    private final JLabel suggestionsFallbackLabel;
     private final JPanel suggestionsListPanel;
     private final JComboBox<String> exportSemesterFilterBox;
     private final JLabel exportSummaryLabel;
@@ -86,9 +88,11 @@ public class AdminWorkspacePanel extends JPanel {
         detailArea = readOnlyArea(12);
 
         matchingSemesterFilterBox = semesterFilterBox(this::refreshMatching);
+        matchingFallbackLabel = UiFactory.mutedLabel("");
         matchingListPanel = verticalPanel();
 
         suggestionsSemesterFilterBox = semesterFilterBox(this::refreshSuggestions);
+        suggestionsFallbackLabel = UiFactory.mutedLabel("");
         suggestionsListPanel = verticalPanel();
 
         exportSemesterFilterBox = semesterFilterBox(this::refreshExportSummary);
@@ -124,8 +128,8 @@ public class AdminWorkspacePanel extends JPanel {
         JPanel sidebar = new JPanel();
         sidebar.setLayout(new BoxLayout(sidebar, BoxLayout.Y_AXIS));
         sidebar.setBackground(Theme.SURFACE);
-        sidebar.setBorder(BorderFactory.createEmptyBorder(26, 24, 26, 24));
-        sidebar.setPreferredSize(new Dimension(250, 800));
+        sidebar.setBorder(BorderFactory.createEmptyBorder(16, 14, 16, 14));
+        sidebar.setPreferredSize(new Dimension(176, 620));
 
         sidebar.add(UiFactory.sectionLabel("TA Recruit"));
         sidebar.add(Box.createVerticalStrut(8));
@@ -162,7 +166,7 @@ public class AdminWorkspacePanel extends JPanel {
         page.add(filterCard("Semester", workloadSemesterFilterBox, this::refreshWorkload));
         page.add(Box.createVerticalStrut(20));
 
-        JPanel contentGrid = new JPanel(new GridLayout(1, 2, 20, 0));
+        JPanel contentGrid = new JPanel(new GridLayout(1, 2, 10, 0));
         contentGrid.setOpaque(false);
 
         JPanel summaryCard = UiFactory.card();
@@ -187,7 +191,9 @@ public class AdminWorkspacePanel extends JPanel {
         JPanel page = pageWrapper();
         page.add(UiFactory.titleLabel("Skill Matching"));
         page.add(Box.createVerticalStrut(8));
-        page.add(UiFactory.mutedLabel("Automatically compare current applicant profiles against each vacancy and explain the fit score."));
+        page.add(UiFactory.mutedLabel("Rank applicants by skill fit and workload risk."));
+        page.add(Box.createVerticalStrut(6));
+        page.add(matchingFallbackLabel);
         page.add(Box.createVerticalStrut(24));
         page.add(filterCard("Semester", matchingSemesterFilterBox, this::refreshMatching));
         page.add(Box.createVerticalStrut(20));
@@ -199,7 +205,9 @@ public class AdminWorkspacePanel extends JPanel {
         JPanel page = pageWrapper();
         page.add(UiFactory.titleLabel("AI Workload Suggestions"));
         page.add(Box.createVerticalStrut(8));
-        page.add(UiFactory.mutedLabel("Review explainable suggestions for balancing workload and filling remaining openings."));
+        page.add(UiFactory.mutedLabel("Surface staffing risks and practical next actions before offers are made."));
+        page.add(Box.createVerticalStrut(6));
+        page.add(suggestionsFallbackLabel);
         page.add(Box.createVerticalStrut(24));
         page.add(filterCard("Semester", suggestionsSemesterFilterBox, this::refreshSuggestions));
         page.add(Box.createVerticalStrut(20));
@@ -215,7 +223,7 @@ public class AdminWorkspacePanel extends JPanel {
         page.add(Box.createVerticalStrut(24));
 
         JPanel controlsCard = UiFactory.card();
-        JPanel controls = new JPanel(new GridLayout(1, 3, 16, 0));
+        JPanel controls = new JPanel(new GridLayout(1, 3, 8, 0));
         controls.setOpaque(false);
         controls.add(labeledField("Semester", exportSemesterFilterBox));
 
@@ -263,12 +271,23 @@ public class AdminWorkspacePanel extends JPanel {
         workloadIntroLabel.setText(currentUser == null
                 ? "Monitor selected TA workload by semester and inspect assignment details."
                 : "Signed in as " + currentUser.displayName() + ". Monitor selected TA workload by semester.");
+        updateAiFallbackLabels();
     }
 
     private JButton navButton(String label, String page) {
         JButton button = UiFactory.navButton(label);
         button.addActionListener(event -> showPage(page));
         return button;
+    }
+
+    private void updateAiFallbackLabels() {
+        String message = analyticsService.isAiFallbackActive()
+                ? "AI service unavailable. Showing rule-based analysis."
+                : "";
+        matchingFallbackLabel.setText(message);
+        matchingFallbackLabel.setVisible(!message.isBlank());
+        suggestionsFallbackLabel.setText(message);
+        suggestionsFallbackLabel.setVisible(!message.isBlank());
     }
 
     private void reloadSemesterFilters() {
@@ -322,7 +341,8 @@ public class AdminWorkspacePanel extends JPanel {
     }
 
     private void refreshMatching() {
-        List<Component> cards = analyticsService.getJobMatchInsights(selectedFilter(matchingSemesterFilterBox)).stream()
+        updateAiFallbackLabels();
+        List<Component> cards = analyticsService.getLocalJobMatchInsights(selectedFilter(matchingSemesterFilterBox)).stream()
                 .map(this::jobMatchCard)
                 .toList();
         rebuildVerticalList(
@@ -333,7 +353,8 @@ public class AdminWorkspacePanel extends JPanel {
     }
 
     private void refreshSuggestions() {
-        List<Component> cards = analyticsService.getWorkloadSuggestions(selectedFilter(suggestionsSemesterFilterBox)).stream()
+        updateAiFallbackLabels();
+        List<Component> cards = analyticsService.getLocalWorkloadSuggestions(selectedFilter(suggestionsSemesterFilterBox)).stream()
                 .map(this::suggestionCard)
                 .toList();
         rebuildVerticalList(
@@ -344,7 +365,8 @@ public class AdminWorkspacePanel extends JPanel {
     }
 
     private void refreshExportSummary() {
-        List<AnalyticsService.JobMatchInsight> insights = analyticsService.getJobMatchInsights(selectedFilter(exportSemesterFilterBox));
+        updateAiFallbackLabels();
+        List<AnalyticsService.JobMatchInsight> insights = analyticsService.getLocalJobMatchInsights(selectedFilter(exportSemesterFilterBox));
         long applicantRows = insights.stream()
                 .mapToLong(insight -> insight.applicants().size())
                 .sum();
@@ -604,7 +626,7 @@ public class AdminWorkspacePanel extends JPanel {
         JPanel page = new JPanel();
         page.setOpaque(false);
         page.setLayout(new BoxLayout(page, BoxLayout.Y_AXIS));
-        page.setBorder(BorderFactory.createEmptyBorder(28, 28, 28, 28));
+        page.setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
         return page;
     }
 
