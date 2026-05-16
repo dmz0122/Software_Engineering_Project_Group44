@@ -41,6 +41,7 @@ public class AnalyticsService {
     private final ActivityLogService activityLogService;
     private final LlmJsonService llmJsonService;
     private final ObjectMapper objectMapper;
+    private volatile boolean aiFallbackActive;
 
     public AnalyticsService(
             ApplicationRepository applicationRepository,
@@ -78,9 +79,20 @@ public class AnalyticsService {
         this.activityLogService = activityLogService;
         this.llmJsonService = llmJsonService;
         this.objectMapper = new ObjectMapper();
+        this.aiFallbackActive = llmJsonService instanceof DisabledLlmJsonService;
+    }
+
+    public boolean isAiFallbackActive() {
+        return aiFallbackActive;
     }
 
     public List<JobMatchInsight> getJobMatchInsights(String semesterFilter) {
+        return getLocalJobMatchInsights(semesterFilter).stream()
+                .map(this::enhanceJobMatchInsight)
+                .toList();
+    }
+
+    public List<JobMatchInsight> getLocalJobMatchInsights(String semesterFilter) {
         String resolvedSemester = resolveSemesterFilter(semesterFilter);
         Map<String, ApplicantProfile> profilesByApplicantId = profilesByApplicantId();
         Map<String, UserAccount> usersById = usersById();
@@ -89,11 +101,19 @@ public class AnalyticsService {
                 .filter(job -> matchesSemester(job.semester(), resolvedSemester))
                 .sorted(Comparator.comparing(JobPosting::title))
                 .map(job -> buildJobMatchInsight(job, profilesByApplicantId, usersById))
-                .map(this::enhanceJobMatchInsight)
                 .toList();
     }
 
     public List<ApplicantSkillGap> getApplicantSkillGaps(String applicantId, String semesterFilter) {
+        return getLocalApplicantSkillGaps(applicantId, semesterFilter).stream()
+                .map(gap -> enhanceApplicantSkillGap(gap, profileRepository.findByApplicantId(applicantId)
+                        .orElse(new ApplicantProfile(applicantId, "", "", "", "", "", "", "", "", "", "", "", ""))))
+                .sorted(Comparator.comparingInt(ApplicantSkillGap::matchScore).reversed()
+                        .thenComparing(ApplicantSkillGap::jobTitle))
+                .toList();
+    }
+
+    public List<ApplicantSkillGap> getLocalApplicantSkillGaps(String applicantId, String semesterFilter) {
         String resolvedSemester = resolveSemesterFilter(semesterFilter);
         ApplicantProfile profile = profileRepository.findByApplicantId(applicantId)
                 .orElse(new ApplicantProfile(applicantId, "", "", "", "", "", "", "", "", "", "", "", ""));
@@ -106,25 +126,27 @@ public class AnalyticsService {
                 .filter(job -> matchesSemester(job.semester(), resolvedSemester))
                 .sorted(Comparator.comparing(JobPosting::title))
                 .map(job -> buildApplicantSkillGap(job, profile, appliedJobIds.contains(job.id())))
-                .map(gap -> enhanceApplicantSkillGap(gap, profile))
                 .sorted(Comparator.comparingInt(ApplicantSkillGap::matchScore).reversed()
                         .thenComparing(ApplicantSkillGap::jobTitle))
                 .toList();
     }
 
     public List<WorkloadSuggestion> getWorkloadSuggestions(String semesterFilter) {
+        return enhanceWorkloadSuggestions(semesterFilter, resolveSemesterFilter(semesterFilter), getLocalWorkloadSuggestions(semesterFilter));
+    }
+
+    public List<WorkloadSuggestion> getLocalWorkloadSuggestions(String semesterFilter) {
         String resolvedSemester = resolveSemesterFilter(semesterFilter);
         Map<String, Integer> currentWorkloads = selectedHoursByApplicant(resolvedSemester);
         Map<String, ApplicantProfile> profilesByApplicantId = profilesByApplicantId();
         Map<String, UserAccount> usersById = usersById();
 
-        List<WorkloadSuggestion> baselineSuggestions = buildBaselineWorkloadSuggestions(
+        return buildBaselineWorkloadSuggestions(
                 resolvedSemester,
                 currentWorkloads,
                 profilesByApplicantId,
                 usersById
         );
-        return enhanceWorkloadSuggestions(semesterFilter, resolvedSemester, baselineSuggestions);
     }
 
     public ExportResult exportApplicantList(Path filePath, String semesterFilter, String actorUserId) {
@@ -133,7 +155,7 @@ public class AnalyticsService {
         Map<String, ApplicantProfile> profilesByApplicantId = profilesByApplicantId();
         Map<String, JobPosting> jobsById = jobRepository.findAll().stream()
                 .collect(Collectors.toMap(JobPosting::id, job -> job, (left, right) -> right, LinkedHashMap::new));
-        Map<String, ApplicantMatchInsight> insightsByApplicationId = getJobMatchInsights(semesterFilter).stream()
+        Map<String, ApplicantMatchInsight> insightsByApplicationId = getLocalJobMatchInsights(semesterFilter).stream()
                 .flatMap(insight -> insight.applicants().stream())
                 .collect(Collectors.toMap(ApplicantMatchInsight::applicationId, insight -> insight, (left, right) -> right, LinkedHashMap::new));
 
@@ -730,7 +752,14 @@ public class AnalyticsService {
                 Data:
                 %s
                 """.formatted(payloadJson);
-        return llmJsonService.completeJson(task + "::" + payloadJson, systemPrompt, userPrompt);
+        try {
+            Optional<JsonNode> response = llmJsonService.completeJson(task + "::" + payloadJson, systemPrompt, userPrompt);
+            aiFallbackActive = response.isEmpty();
+            return response;
+        } catch (RuntimeException exception) {
+            aiFallbackActive = true;
+            return Optional.empty();
+        }
     }
 
     private String toJson(Object value) {

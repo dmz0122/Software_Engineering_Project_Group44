@@ -151,6 +151,57 @@ class AnalyticsServiceTest {
         assertTrue(suggestion.recommendation().contains("Amy Parker"));
     }
 
+    @Test
+    void keepsLocalAnalyticsWhenLlmReturnsNoData() {
+        AnalyticsService service = buildService((cacheKey, systemPrompt, userPrompt) -> Optional.empty());
+
+        AnalyticsService.JobMatchInsight matchInsight = service.getJobMatchInsights("Semester A").getFirst();
+        assertEquals("Programming TA", matchInsight.jobTitle());
+        assertEquals(2, matchInsight.applicants().size());
+        assertTrue(matchInsight.summary().contains("applicant(s) analysed"));
+
+        AnalyticsService.ApplicantSkillGap gap = service.getApplicantSkillGaps("ta-1", "Semester A").getFirst();
+        assertFalse(gap.suggestions().isEmpty());
+
+        assertFalse(service.getWorkloadSuggestions("Semester A").isEmpty());
+        assertTrue(service.isAiFallbackActive());
+    }
+
+    @Test
+    void keepsLocalAnalyticsWhenLlmThrows() {
+        AnalyticsService service = buildService((cacheKey, systemPrompt, userPrompt) -> {
+            throw new RuntimeException("AI service timeout");
+        });
+
+        assertFalse(service.getJobMatchInsights("Semester A").isEmpty());
+        assertFalse(service.getApplicantSkillGaps("ta-1", "Semester A").isEmpty());
+        assertFalse(service.getWorkloadSuggestions("Semester A").isEmpty());
+        assertTrue(service.isAiFallbackActive());
+    }
+
+    @Test
+    void ignoresMalformedLlmShapeAndKeepsBaselineValues() throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper();
+        JsonNode malformedResponse = objectMapper.readTree("""
+                {
+                  "summary": 42,
+                  "applicants": [{"applicationId": "app-1", "matchScore": "not-a-number"}],
+                  "suggestions": [{"category": 100}]
+                }
+                """);
+        LlmJsonService malformedLlm = (cacheKey, systemPrompt, userPrompt) -> Optional.of(malformedResponse);
+        AnalyticsService service = buildService(malformedLlm);
+
+        AnalyticsService.JobMatchInsight matchInsight = service.getJobMatchInsights("Semester A").getFirst();
+        AnalyticsService.ApplicantMatchInsight applicant = matchInsight.applicants().getFirst();
+        assertEquals("Amy Parker", applicant.applicantName());
+        assertTrue(applicant.matchScore() >= 50);
+        assertTrue(matchInsight.summary().contains("applicant(s) analysed"));
+
+        AnalyticsService.ApplicantSkillGap gap = service.getApplicantSkillGaps("ta-1", "Semester A").getFirst();
+        assertFalse(gap.suggestions().isEmpty());
+    }
+
     private AnalyticsService buildService() {
         return buildService(new DisabledLlmJsonService());
     }

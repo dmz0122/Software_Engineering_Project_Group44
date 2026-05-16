@@ -55,11 +55,16 @@ public class ApplicationService {
     }
 
     public List<ApplicantReviewItem> findApplicantsForJob(String jobId, String searchQuery) {
+        return findApplicantsForJob(jobId, searchQuery, null);
+    }
+
+    public List<ApplicantReviewItem> findApplicantsForJob(String jobId, String searchQuery, ApplicationStatus statusFilter) {
         JobPosting job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new IllegalArgumentException("Job not found."));
         String normalizedQuery = normalize(searchQuery);
         return applicationRepository.findAll().stream()
                 .filter(application -> application.jobId().equals(jobId))
+                .filter(application -> statusFilter == null || application.status() == statusFilter)
                 .map(application -> buildReviewItem(job, application))
                 .filter(item -> matchesApplicantQuery(item, normalizedQuery))
                 .sorted(Comparator.comparingInt(ApplicantReviewItem::fitScore).reversed())
@@ -148,7 +153,7 @@ public class ApplicationService {
         notificationService.notifyUser(
                 application.applicantId(),
                 "Application shortlisted",
-                "You have been shortlisted for " + job.title() + "."
+                "You have been shortlisted for " + job.title() + ". Please wait for an interview invitation or further review."
         );
     }
 

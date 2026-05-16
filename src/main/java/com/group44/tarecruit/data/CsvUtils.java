@@ -17,14 +17,7 @@ public final class CsvUtils {
             if (!Files.exists(path)) {
                 return List.of();
             }
-            List<String> lines = Files.readAllLines(path, StandardCharsets.UTF_8);
-            List<List<String>> rows = new ArrayList<>();
-            for (String line : lines) {
-                if (!line.isBlank()) {
-                    rows.add(parseLine(line));
-                }
-            }
-            return rows;
+            return parseRecords(Files.readString(path, StandardCharsets.UTF_8));
         } catch (IOException exception) {
             throw new IllegalStateException("Failed to read CSV: " + path, exception);
         }
@@ -32,7 +25,9 @@ public final class CsvUtils {
 
     public static void write(Path path, List<String> header, List<List<String>> rows) {
         try {
-            Files.createDirectories(path.getParent());
+            if (path.getParent() != null) {
+                Files.createDirectories(path.getParent());
+            }
             List<String> lines = new ArrayList<>();
             lines.add(formatLine(header));
             lines.addAll(rows.stream().map(CsvUtils::formatLine).toList());
@@ -42,14 +37,18 @@ public final class CsvUtils {
         }
     }
 
-    private static List<String> parseLine(String line) {
+    private static List<List<String>> parseRecords(String content) {
+        List<List<String>> rows = new ArrayList<>();
         List<String> fields = new ArrayList<>();
         StringBuilder current = new StringBuilder();
         boolean inQuotes = false;
-        for (int index = 0; index < line.length(); index++) {
-            char currentChar = line.charAt(index);
+        boolean hasContent = false;
+
+        for (int index = 0; index < content.length(); index++) {
+            char currentChar = content.charAt(index);
             if (currentChar == '"') {
-                if (inQuotes && index + 1 < line.length() && line.charAt(index + 1) == '"') {
+                hasContent = true;
+                if (inQuotes && index + 1 < content.length() && content.charAt(index + 1) == '"') {
                     current.append('"');
                     index++;
                 } else {
@@ -58,12 +57,29 @@ public final class CsvUtils {
             } else if (currentChar == ',' && !inQuotes) {
                 fields.add(current.toString());
                 current.setLength(0);
+                hasContent = true;
+            } else if ((currentChar == '\n' || currentChar == '\r') && !inQuotes) {
+                if (currentChar == '\r' && index + 1 < content.length() && content.charAt(index + 1) == '\n') {
+                    index++;
+                }
+                fields.add(current.toString());
+                if (hasContent || fields.stream().anyMatch(value -> !value.isBlank())) {
+                    rows.add(List.copyOf(fields));
+                }
+                fields.clear();
+                current.setLength(0);
+                hasContent = false;
             } else {
                 current.append(currentChar);
+                hasContent = true;
             }
         }
+
         fields.add(current.toString());
-        return fields;
+        if (hasContent || fields.stream().anyMatch(value -> !value.isBlank())) {
+            rows.add(List.copyOf(fields));
+        }
+        return rows;
     }
 
     private static String formatLine(List<String> fields) {
